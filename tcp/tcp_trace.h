@@ -148,6 +148,60 @@ DEFINE_EVENT(tcp_event_sk, tcp_send_loss_probe,
     TP_ARGS(sk)
 );
 
+DECLARE_EVENT_CLASS(tcp_event_conn,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len),
+
+    TP_STRUCT__entry(
+        __field(__u64, ts_us)
+        __field(__u16, dport)
+        __array(__u8, saddr, 4)
+        __array(__u8, daddr, 4)
+        __array(__u8, saddr_v6, 16)
+        __array(__u8, daddr_v6, 16)
+        __field(__u64, delta_us)
+    ),
+
+    TP_fast_assign(
+        struct inet_sock *inet = inet_sk(sk);
+        __be32 *p32;
+
+        __entry->dport = ntohs(inet->inet_dport);
+
+        p32 = (__be32 *) __entry->saddr;
+        *p32 = inet->inet_saddr;
+
+        p32 = (__be32 *) __entry->daddr;
+        *p32 =  inet->inet_daddr;
+
+        TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
+                   sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
+
+        __entry->ts_us = 0;
+        __entry->dport = 0;
+        __entry->delta_us = 0;
+    ),
+
+    TP_printk("dport=%hu",
+          __entry->dport)
+);
+
+DEFINE_EVENT(tcp_event_conn, tcp_v4_connect,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len)
+);
+
+DEFINE_EVENT(tcp_event_conn, tcp_v6_connect,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len)
+);
+
 #endif /* _TRACE_TCP_H */
 
 #undef TRACE_INCLUDE_PATH
