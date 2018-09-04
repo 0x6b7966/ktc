@@ -33,9 +33,39 @@ static struct jprobe tcp_send_loss_probe_jp = {
     .entry = jtcp_send_loss_probe,
 };
 
+static int jtcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+    trace_tcp_v4_connect(sk, uaddr, addr_len);
+    jprobe_return();
+    return 0;
+}
+
+static struct jprobe tcp_v4_connect_jp = {
+    .kp = {
+        .symbol_name = "tcp_v4_connect",
+    },
+    .entry = jtcp_v4_connect,
+};
+
+static int jtcp_v6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+    trace_tcp_v6_connect(sk, uaddr, addr_len);
+    jprobe_return();
+    return 0;
+}
+
+static struct jprobe tcp_v6_connect_jp = {
+    .kp = {
+        .symbol_name = "tcp_v6_connect",
+    },
+    .entry = jtcp_v6_connect,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
-    &tcp_send_loss_probe_jp
+    &tcp_send_loss_probe_jp,
+    &tcp_v4_connect_jp,
+    &tcp_v6_connect_jp
 };
 
 static int __init tcp_trace_init(void) {
