@@ -61,11 +61,26 @@ static struct jprobe tcp_v6_connect_jp = {
     .entry = jtcp_v6_connect,
 };
 
+static int jtcp_rcv_state_process(struct sock *sk, struct sk_buff *skb, const struct tcphdr *th, unsigned int len)
+{
+    trace_tcp_rcv_state_process(sk, skb, th, len);
+    jprobe_return();
+    return 0;
+}
+
+static struct jprobe tcp_rcv_state_process_jp = {
+    .kp = {
+        .symbol_name = "tcp_rcv_state_process",
+    },
+    .entry = jtcp_rcv_state_process,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
     &tcp_v4_connect_jp,
-    &tcp_v6_connect_jp
+    &tcp_v6_connect_jp,
+    &tcp_rcv_state_process_jp
 };
 
 static int __init tcp_trace_init(void) {
