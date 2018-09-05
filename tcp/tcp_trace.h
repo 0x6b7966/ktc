@@ -148,7 +148,38 @@ DEFINE_EVENT(tcp_event_sk, tcp_send_loss_probe,
     TP_ARGS(sk)
 );
 
-DECLARE_EVENT_CLASS(tcp_event_conn,
+DECLARE_EVENT_CLASS(tcp_event_conn_entry,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len),
+
+    TP_STRUCT__entry(
+        __field(const void *, skaddr)
+    ),
+
+    TP_fast_assign(
+        __entry->skaddr = sk;
+    ),
+
+    TP_printk("skaddr=%p", __entry->skaddr)
+);
+
+DEFINE_EVENT(tcp_event_conn_entry, tcp_v4_connect_entry,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len)
+);
+
+DEFINE_EVENT(tcp_event_conn_entry, tcp_v6_connect_entry,
+
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+
+    TP_ARGS(sk, uaddr, addr_len)
+);
+
+DECLARE_EVENT_CLASS(tcp_event_conn_return,
 
     TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
 
@@ -189,14 +220,14 @@ DECLARE_EVENT_CLASS(tcp_event_conn,
           __entry->saddr_v6, __entry->daddr_v6)
 );
 
-DEFINE_EVENT(tcp_event_conn, tcp_v4_connect,
+DEFINE_EVENT(tcp_event_conn_return, tcp_v4_connect_return,
 
     TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
 
     TP_ARGS(sk, uaddr, addr_len)
 );
 
-DEFINE_EVENT(tcp_event_conn, tcp_v6_connect,
+DEFINE_EVENT(tcp_event_conn_return, tcp_v6_connect_return,
 
     TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
 

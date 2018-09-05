@@ -35,7 +35,7 @@ static struct jprobe tcp_send_loss_probe_jp = {
 
 static int jtcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
-    trace_tcp_v4_connect(sk, uaddr, addr_len);
+    trace_tcp_v4_connect_entry(sk, uaddr, addr_len);
     jprobe_return();
     return 0;
 }
@@ -49,7 +49,7 @@ static struct jprobe tcp_v4_connect_jp = {
 
 static int jtcp_v6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
-    trace_tcp_v6_connect(sk, uaddr, addr_len);
+    trace_tcp_v6_connect_entry(sk, uaddr, addr_len);
     jprobe_return();
     return 0;
 }
@@ -83,6 +83,25 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_rcv_state_process_jp
 };
 
+static struct kretprobe tcp_v4_connect_krp = {
+        .handler                = NULL,
+        .entry_handler          = NULL,
+        .data_size              = 0,
+        .maxactive              = 0,
+};
+
+static struct kretprobe tcp_v6_connect_krp = {
+        .handler                = NULL,
+        .entry_handler          = NULL,
+        .data_size              = 0,
+        .maxactive              = 0,
+};
+
+static struct kretprobe* tcp_krps[] = {
+    &tcp_v4_connect_krp,
+    &tcp_v6_connect_krp,
+};
+
 static int __init tcp_trace_init(void) {
     int ret;
 
@@ -93,12 +112,21 @@ static int __init tcp_trace_init(void) {
     }
     pr_info("Register tcp jprobe successed\n");
 
+    ret = register_kretprobes(tcp_krps, sizeof(tcp_krps) / sizeof(tcp_krps[0]));
+    if (ret) {
+        pr_err("Register tcp kretprobes failed\n");
+        return ret;
+    }
+    pr_info("Register tcp kretprobes successed\n");
+
     return 0;
 }
 
 static void __exit tcp_trace_exit(void) {
     unregister_jprobes(tcp_jprobes, sizeof(tcp_jprobes) / sizeof(tcp_jprobes[0]));
     pr_info("unregister tcp jprobes successed\n");
+    unregister_kretprobes(tcp_krps, sizeof(tcp_krps) / sizeof(tcp_krps[0]));
+    pr_info("unregister tcp kretprobes successed\n");
 }
 
 MODULE_AUTHOR("Zwb <ethercflow@gmail.com>");
