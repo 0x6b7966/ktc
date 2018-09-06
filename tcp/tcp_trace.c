@@ -83,15 +83,37 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_rcv_state_process_jp
 };
 
+static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct sock *sk = (void*)regs->di;
+    struct sockaddr *uaddr = (void*)regs->si;
+    int addr_len = (int)regs->dx;
+
+    trace_tcp_v4_connect_return(sk, uaddr, addr_len);
+
+    return 0;
+}
+
 static struct kretprobe tcp_v4_connect_krp = {
-        .handler                = NULL,
+        .handler                = &rtcp_v4_connect,
         .entry_handler          = NULL,
         .data_size              = 0,
-        .maxactive              = 0,
+        .maxactive              = NR_CPUS * 2,
 };
 
+static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct sock *sk = (void*)regs->di;
+    struct sockaddr *uaddr = (void*)regs->si;
+    int addr_len = (int)regs->dx;
+
+    trace_tcp_v6_connect_return(sk, uaddr, addr_len);
+
+    return 0;
+}
+
 static struct kretprobe tcp_v6_connect_krp = {
-        .handler                = NULL,
+        .handler                = &rtcp_v6_connect,
         .entry_handler          = NULL,
         .data_size              = 0,
         .maxactive              = 0,
