@@ -214,7 +214,8 @@ DECLARE_EVENT_CLASS(tcp_event_conn_return,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+          __entry->skaddr,
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6)

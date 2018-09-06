@@ -83,24 +83,34 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_rcv_state_process_jp
 };
 
+#define  TCP_INFO_MEMBER       \
+    struct sock *sk;           \
+    struct sockaddr *uaddr;    \
+    int addr_len;
+
+struct tcp_v4_info {
+    TCP_INFO_MEMBER
+};
+
 static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    pr_warn("regs->di: %p, regs->si: %p, regs->dx: %p",
-	    regs->di, regs->si, regs->dx);
+    struct tcp_v4_info *ti = (void*)ri->data;
+
+    ti->sk = (void*)regs->di;
+    ti->uaddr = (void*)regs->si;
+    ti->addr_len = (int)regs->dx;
+
     return 0;
 }
 
 static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    // struct sock *sk = (void*)regs->dx;
-    // struct sockaddr *uaddr = (void*)regs->si;
-    // int addr_len = (int)regs->di;
+    struct tcp_v4_info *ti = (void*)ri->data;
+    struct sock *sk = ti->sk;
+    struct sockaddr *uaddr = ti->uaddr;
+    int addr_len = ti->addr_len;
 
-    // trace_tcp_v4_connect_return(sk, uaddr, addr_len);
-    //
-
-    pr_warn("regs->di: %p, regs->si: %p, regs->dx: %p",
-	    regs->di, regs->si, regs->dx);
+    trace_tcp_v4_connect_return(sk, uaddr, addr_len);
 
     return 0;
 }
@@ -111,15 +121,31 @@ static struct kretprobe tcp_v4_connect_krp = {
     },
     .handler                = &rtcp_v4_connect,
     .entry_handler          = &etcp_v4_connect,
-    .data_size              = 0,
+    .data_size              = sizeof(struct tcp_v4_info),
     .maxactive              = NR_CPUS * 2,
 };
 
+struct tcp_v6_info {
+    TCP_INFO_MEMBER
+};
+
+static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct tcp_v6_info *ti = (void*)ri->data;
+
+    ti->sk = (void*)regs->di;
+    ti->uaddr = (void*)regs->si;
+    ti->addr_len = (int)regs->dx;
+
+    return 0;
+}
+
 static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct sock *sk = (void*)regs->dx;
-    struct sockaddr *uaddr = (void*)regs->si;
-    int addr_len = (int)regs->di;
+    struct tcp_v4_info *ti = (void*)ri->data;
+    struct sock *sk = ti->sk;
+    struct sockaddr *uaddr = ti->uaddr;
+    int addr_len = ti->addr_len;
 
     trace_tcp_v6_connect_return(sk, uaddr, addr_len);
 
@@ -131,7 +157,7 @@ static struct kretprobe tcp_v6_connect_krp = {
         .symbol_name = "tcp_v6_connect",
     },
     .handler                = &rtcp_v6_connect,
-    .entry_handler          = NULL,
+    .entry_handler          = &etcp_v6_connect,
     .data_size              = 0,
     .maxactive              = 0,
 };
