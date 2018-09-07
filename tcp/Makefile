@@ -1,5 +1,6 @@
-CONFIG_MODULE_SIG=n
+CONFIG_MODULE_SG=n
 obj-m := tcp_trace.o 
+tcp_trace-objs += tcp_trace_helper.o
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 WARN_FLAGS += -Wall
