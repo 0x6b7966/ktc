@@ -83,9 +83,9 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_rcv_state_process_jp
 };
 
-#define  TCP_INFO_MEMBER       \
-    struct sock *sk;           \
-    struct sockaddr *uaddr;    \
+#define  TCP_INFO_MEMBER                        \
+    struct sock *sk;                            \
+    struct sockaddr *uaddr;                     \
     int addr_len;
 
 struct tcp_v4_info {
@@ -159,12 +159,59 @@ static struct kretprobe tcp_v6_connect_krp = {
     .handler                = &rtcp_v6_connect,
     .entry_handler          = &etcp_v6_connect,
     .data_size              = 0,
+    .maxactive              = NR_CPUS * 2,
+};
+
+static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct sock *sk = (void*)regs_return_value(regs);
+    u8 protocol = 0;
+    int gso_max_segs_offset = offsetof(struct sock, sk_gso_max_segs);
+    int sk_lingertime_offset = offsetof(struct sock, sk_lingertime);
+
+    if (sk == NULL)
+        return 0;
+
+    if (sk_lingertime_offset - gso_max_segs_offset == 4)
+        // 4.10+ with little endian
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        protocol = *(u8 *)((u64)&sk->sk_gso_max_segs - 3);
+    else
+        // pre-4.10 with little endian
+        protocol = *(u8 *)((u64)&sk->sk_wmem_queued - 3);
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        // 4.10+ with big endian
+        protocol = *(u8 *)((u64)&sk->sk_gso_max_segs - 1);
+    else
+        // pre-4.10 with big endian
+        protocol = *(u8 *)((u64)&sk->sk_wmem_queued - 1);
+#else
+# error "Fix your compiler's __BYTE_ORDER__?!"
+#endif
+
+    if (protocol != IPPROTO_TCP)
+        return 0;
+
+    trace_inet_csk_accept_return(sk);
+
+    return 0;
+}
+
+
+static struct kretprobe inet_csk_accept_krp = {
+    .kp = {
+        .symbol_name = "inet_csk_accept",
+    },
+    .handler                = &rinet_csk_accept,
+    .entry_handler          = NULL,
+    .data_size              = 0,
     .maxactive              = 0,
 };
 
 static struct kretprobe *tcp_krps[] = {
     &tcp_v4_connect_krp,
     &tcp_v6_connect_krp,
+    &inet_csk_accept_krp,
 };
 
 static int __init tcp_trace_init(void) {
