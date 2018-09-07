@@ -75,12 +75,28 @@ static struct jprobe tcp_rcv_state_process_jp = {
     .entry = jtcp_rcv_state_process,
 };
 
+static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+                                 const struct tcphdr *th, unsigned int len)
+{
+    /* TCP congestion window tracking */
+    trace_tcp_probe(sk, skb);
+    jprobe_return();
+}
+
+static struct jprobe tcp_rcv_established_jp = {
+    .kp = {
+        .symbol_name = "tcp_rcv_established",
+    },
+    .entry = jtcp_rcv_established,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
     &tcp_v4_connect_jp,
     &tcp_v6_connect_jp,
-    &tcp_rcv_state_process_jp
+    &tcp_rcv_state_process_jp,
+    &tcp_rcv_established_jp,
 };
 
 #define  TCP_INFO_MEMBER                        \
@@ -180,8 +196,8 @@ static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
         // pre-4.10 with little endian
         protocol = *(u8 *)((u64)&sk->sk_wmem_queued - 3);
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-        // 4.10+ with big endian
-        protocol = *(u8 *)((u64)&sk->sk_gso_max_segs - 1);
+    // 4.10+ with big endian
+    protocol = *(u8 *)((u64)&sk->sk_gso_max_segs - 1);
     else
         // pre-4.10 with big endian
         protocol = *(u8 *)((u64)&sk->sk_wmem_queued - 1);
