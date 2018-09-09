@@ -90,6 +90,20 @@ static struct jprobe tcp_rcv_established_jp = {
     .entry = jtcp_rcv_established,
 };
 
+static int jtcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, size_t size)
+{
+    trace_tcp_sendmsg(iocb, sk, msg, size);
+    jprobe_return();
+    return 0;
+}
+
+static struct jprobe tcp_sendmsg_jp = {
+    .kp = {
+        .symbol_name = "tcp_sendmsg",
+    },
+    .entry = jtcp_sendmsg,
+}
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
@@ -97,6 +111,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_v6_connect_jp,
     &tcp_rcv_state_process_jp,
     &tcp_rcv_established_jp,
+    &tcp_sendmsg_jp,
 };
 
 #define  TCP_INFO_MEMBER                        \
