@@ -289,7 +289,7 @@ TRACE_EVENT(tcp_sendmsg,
 
     TP_ARGS(iocb, sk, msg, size),
 
-    TR_STRUCT__entry(
+    TP_STRUCT__entry(
         __field(const void *, skaddr)
         __field(__u16, sport)
         __field(__u16, dport)
@@ -297,7 +297,7 @@ TRACE_EVENT(tcp_sendmsg,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
-        ___field(__u64, size)
+        __field(__u64, size)
     ),
 
     TP_fast_assign(
@@ -321,7 +321,7 @@ TRACE_EVENT(tcp_sendmsg,
         __entry->size = size;
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m size=%hu",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m size=%llu",
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,

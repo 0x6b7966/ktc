@@ -102,7 +102,7 @@ static struct jprobe tcp_sendmsg_jp = {
         .symbol_name = "tcp_sendmsg",
     },
     .entry = jtcp_sendmsg,
-}
+};
 
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
