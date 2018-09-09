@@ -117,6 +117,19 @@ static struct jprobe tcp_cleanup_rbuf_jp = {
     .entry = jtcp_cleanup_rbuf,
 };
 
+static void jtcp_set_state(struct sock *sk, int state)
+{
+    trace_tcp_set_state(sk, state);
+    jprobe_return();
+}
+
+static struct jprobe tcp_set_state_jp = {
+    .kp = {
+        .symbol_name = "tcp_set_state",
+    },
+    .entry = jtcp_set_state,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
@@ -126,6 +139,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_rcv_established_jp,
     &tcp_sendmsg_jp,
     &tcp_cleanup_rbuf_jp,
+    &tcp_set_state_jp,
 };
 
 #define  TCP_INFO_MEMBER                        \
