@@ -387,7 +387,7 @@ TRACE_EVENT(tcp_set_state,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
-        __field(__s32, size)
+        __field(__s32, state)
     ),
 
     TP_fast_assign(
