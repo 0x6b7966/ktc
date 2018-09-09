@@ -328,6 +328,51 @@ TRACE_EVENT(tcp_sendmsg,
           __entry->size)
 );
 
+TRACE_EVENT(tcp_cleanup_rbuf,
+
+    TP_PROTO(struct sock *sk, int copied),
+
+    TP_ARGS(sk, copied),
+
+    TP_STRUCT__entry(
+        __field(const void *, skaddr)
+        __field(__u16, sport)
+        __field(__u16, dport)
+        __array(__u8, saddr, 4)
+        __array(__u8, daddr, 4)
+        __array(__u8, saddr_v6, 16)
+        __array(__u8, daddr_v6, 16)
+        __field(__u64, size)
+    ),
+
+    TP_fast_assign(
+        struct inet_sock *inet = inet_sk(sk);
+        __be32 *p32;
+
+        __entry->skaddr = sk;
+
+        __entry->sport = ntohs(inet->inet_sport);
+        __entry->dport = ntohs(inet->inet_dport);
+
+        p32 = (__be32 *) __entry->saddr;
+        *p32 = inet->inet_saddr;
+
+        p32 = (__be32 *) __entry->daddr;
+        *p32 =  inet->inet_daddr;
+
+        TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
+                   sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
+
+        __entry->size = copied;
+    ),
+
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m size=%llu",
+          __entry->sport, __entry->dport,
+          __entry->saddr, __entry->daddr,
+          __entry->saddr_v6, __entry->daddr_v6,
+          __entry->size)
+);
+
 #include "net_probe_common.h"
 
 TRACE_EVENT(tcp_probe,
