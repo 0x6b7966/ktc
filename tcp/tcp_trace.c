@@ -142,18 +142,15 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_set_state_jp,
 };
 
-#define  TCP_INFO_MEMBER                        \
-    struct sock *sk;                            \
-    struct sockaddr *uaddr;                     \
-    int addr_len;
-
-struct tcp_v4_info {
-    TCP_INFO_MEMBER
+#define TCP_CONNECT_CTX(family) struct tcp_v##family_connect_ctx {   \
+    struct sock *sk;                                                 \
+    struct sockaddr *uaddr;                                          \
+    int addr_len;                                                    \
 };
 
 static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_v4_info *ti = (void*)ri->data;
+    TCP_CONNECT_CTX(4) *ti = (void*)ri->data;
 
     ti->sk = (void*)regs->di;
     ti->uaddr = (void*)regs->si;
@@ -164,7 +161,7 @@ static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 
 static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_v4_info *ti = (void*)ri->data;
+    TCP_CONNECT_CTX(4) *ti = (void*)ri->data;
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
@@ -180,17 +177,13 @@ static struct kretprobe tcp_v4_connect_krp = {
     },
     .handler                = &rtcp_v4_connect,
     .entry_handler          = &etcp_v4_connect,
-    .data_size              = sizeof(struct tcp_v4_info),
+    .data_size              = sizeof(TCP_CONNECT_CTX(4)),
     .maxactive              = NR_CPUS * 2,
-};
-
-struct tcp_v6_info {
-    TCP_INFO_MEMBER
 };
 
 static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_v6_info *ti = (void*)ri->data;
+    TCP_CONNECT_CTX(6) *ti = (void*)ri->data;
 
     ti->sk = (void*)regs->di;
     ti->uaddr = (void*)regs->si;
@@ -201,7 +194,7 @@ static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 
 static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_v4_info *ti = (void*)ri->data;
+    TCP_CONNECT_CTX(6) *ti = (void*)ri->data;
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
@@ -217,7 +210,7 @@ static struct kretprobe tcp_v6_connect_krp = {
     },
     .handler                = &rtcp_v6_connect,
     .entry_handler          = &etcp_v6_connect,
-    .data_size              = sizeof(tcp_v6_info),
+    .data_size              = sizeof(TCP_CONNECT_CTX(6)),
     .maxactive              = NR_CPUS * 2,
 };
 
