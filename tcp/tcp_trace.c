@@ -142,15 +142,17 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_set_state_jp,
 };
 
-#define TCP_CONNECT_CTX(family) struct tcp_v##family_connect_ctx {   \
-    struct sock *sk;                                                 \
-    struct sockaddr *uaddr;                                          \
-    int addr_len;                                                    \
+#define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
+    struct sock *sk;                                                    \
+    struct sockaddr *uaddr;                                             \
+    int addr_len;                                                       \
 };
+
+TCP_CONNECT_CTX(4);
 
 static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    TCP_CONNECT_CTX(4) *ti = (void*)ri->data;
+    struct tcp_v4_connect_ctx *ti = (void*)ri->data;
 
     ti->sk = (void*)regs->di;
     ti->uaddr = (void*)regs->si;
@@ -161,7 +163,7 @@ static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 
 static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    TCP_CONNECT_CTX(4) *ti = (void*)ri->data;
+    struct tcp_v4_connect_ctx *ti = (void*)ri->data;
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
@@ -177,13 +179,15 @@ static struct kretprobe tcp_v4_connect_krp = {
     },
     .handler                = &rtcp_v4_connect,
     .entry_handler          = &etcp_v4_connect,
-    .data_size              = sizeof(TCP_CONNECT_CTX(4)),
+    .data_size              = sizeof(struct tcp_v4_connect_ctx),
     .maxactive              = NR_CPUS * 2,
 };
 
+TCP_CONNECT_CTX(6);
+
 static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    TCP_CONNECT_CTX(6) *ti = (void*)ri->data;
+    struct tcp_v6_connect_ctx *ti = (void*)ri->data;
 
     ti->sk = (void*)regs->di;
     ti->uaddr = (void*)regs->si;
@@ -194,7 +198,7 @@ static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 
 static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    TCP_CONNECT_CTX(6) *ti = (void*)ri->data;
+    struct tcp_v6_connect_ctx *ti = (void*)ri->data;
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
@@ -210,7 +214,7 @@ static struct kretprobe tcp_v6_connect_krp = {
     },
     .handler                = &rtcp_v6_connect,
     .entry_handler          = &etcp_v6_connect,
-    .data_size              = sizeof(TCP_CONNECT_CTX(6)),
+    .data_size              = sizeof(struct tcp_v6_connect_ctx),
     .maxactive              = NR_CPUS * 2,
 };
 
@@ -264,7 +268,7 @@ struct tcp_rtx_synack_ctx {
     struct request_sock *req;
 };
 
-static int etcp_rtx_synack_krp(struct kretprobe_instance *ri, struct pt_regs *regs)
+static int etcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
     struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
 
@@ -274,7 +278,7 @@ static int etcp_rtx_synack_krp(struct kretprobe_instance *ri, struct pt_regs *re
     return 0;
 }
 
-static int rtcp_rtx_synack_krp(struct kretprobe_instance *ri, struct pt_regs *regs)
+static int rtcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
     struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
 
@@ -290,8 +294,8 @@ static struct kretprobe tcp_rtx_synack_krp = {
         .symbol_name = "tcp_rtx_synack",
     },
     .handler                = &rtcp_rtx_synack,
-    .entry_handler          = NULL,
-    .data_size              = sizeof(tcp_rtx_synack_ctx),
+    .entry_handler          = &etcp_rtx_synack,
+    .data_size              = sizeof(struct tcp_rtx_synack_ctx),
     .maxactive              = NR_CPUS * 2,
 };
 
