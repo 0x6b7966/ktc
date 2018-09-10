@@ -156,6 +156,19 @@ static struct jprobe tcp_rcv_space_adjust_jp = {
     .entry = jtcp_rcv_space_adjust,
 };
 
+static void jtcp_receive_reset(struct sock *sk)
+{
+    trace_tcp_receive_reset(sk);
+    jprobe_return();
+}
+
+static struct jprobe tcp_receive_reset_jp = {
+    .kp = {
+        .symbol_name = "tcp_rcv_space_adjust",
+    },
+    .entry = jtcp_receive_reset,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
@@ -168,6 +181,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_set_state_jp,
     &tcp_destroy_sock_jp,
     &tcp_rcv_space_adjust_jp,
+    &tcp_receive_reset_jp,
 };
 
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
