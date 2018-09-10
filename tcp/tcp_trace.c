@@ -136,11 +136,24 @@ static void jtcp_destroy_sock(struct sock *sk)
     jprobe_return();
 }
 
-static struct jprobe tcp_destroy_sock = {
+static struct jprobe tcp_destroy_sock_jp = {
     .kp = {
         .symbol_name = "tcp_v4_destroy_sock",
     },
-    .entry =jtcp_destroy_sock,
+    .entry = jtcp_destroy_sock,
+};
+
+static void jtcp_rcv_space_adjust(struct sock *sk)
+{
+    trace_tcp_rcv_space_adjust(sk);
+    jprobe_return();
+}
+
+static struct jprobe tcp_rcv_space_adjust_jp = {
+    .kp = {
+        .symbol_name = "tcp_rcv_space_adjust",
+    },
+    .entry = jtcp_rcv_space_adjust,
 };
 
 static struct jprobe *tcp_jprobes[] = {
@@ -153,7 +166,8 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_sendmsg_jp,
     &tcp_cleanup_rbuf_jp,
     &tcp_set_state_jp,
-    &tcp_destroy_sock,
+    &tcp_destroy_sock_jp,
+    &tcp_rcv_space_adjust_jp,
 };
 
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \

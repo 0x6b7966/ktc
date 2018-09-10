@@ -162,6 +162,13 @@ DEFINE_EVENT(tcp_event_sk, tcp_destroy_sock,
     TP_ARGS(sk)
 );
 
+DEFINE_EVENT(tcp_event_sk, tcp_rcv_space_adjust,
+
+    TP_PROTO(struct sock *sk),
+
+    TP_ARGS(sk)
+);
+
 DECLARE_EVENT_CLASS(tcp_event_conn_entry,
 
     TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
