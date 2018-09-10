@@ -217,7 +217,7 @@ static struct kretprobe tcp_v6_connect_krp = {
     },
     .handler                = &rtcp_v6_connect,
     .entry_handler          = &etcp_v6_connect,
-    .data_size              = 0,
+    .data_size              = sizeof(tcp_v6_info),
     .maxactive              = NR_CPUS * 2,
 };
 
@@ -256,7 +256,6 @@ static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
     return 0;
 }
 
-
 static struct kretprobe inet_csk_accept_krp = {
     .kp = {
         .symbol_name = "inet_csk_accept",
@@ -264,13 +263,50 @@ static struct kretprobe inet_csk_accept_krp = {
     .handler                = &rinet_csk_accept,
     .entry_handler          = NULL,
     .data_size              = 0,
-    .maxactive              = 0,
+    .maxactive              = NR_CPUS * 2,
+};
+
+struct tcp_rtx_synack_ctx {
+    struct sock *sk;
+    struct request_sock *req;
+};
+
+static int etcp_rtx_synack_krp(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
+
+    trsc->sk = (void*)regs->di;
+    trsc->req = (void*)regs->si;
+
+    return 0;
+}
+
+static int rtcp_rtx_synack_krp(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
+
+    if ((int)regs_return_value(regs)) {
+       trace_tcp_retransmit_synack(trsc->sk, trsc->req);
+    }
+
+    return 0;
+}
+
+static struct kretprobe tcp_rtx_synack_krp = {
+    .kp = {
+        .symbol_name = "tcp_rtx_synack",
+    },
+    .handler                = &rtcp_rtx_synack,
+    .entry_handler          = NULL,
+    .data_size              = sizeof(tcp_rtx_synack_ctx),
+    .maxactive              = NR_CPUS * 2,
 };
 
 static struct kretprobe *tcp_krps[] = {
     &tcp_v4_connect_krp,
     &tcp_v6_connect_krp,
     &inet_csk_accept_krp,
+    &tcp_rtx_synack_krp,
 };
 
 static int __init tcp_trace_init(void) {

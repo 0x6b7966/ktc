@@ -418,6 +418,49 @@ TRACE_EVENT(tcp_set_state,
           __entry->state)
 )
 
+TRACE_EVENT(tcp_retransmit_synack,
+
+    TP_PROTO(const struct sock *sk, const struct request_sock *req),
+
+    TP_ARGS(sk, req),
+
+    TP_STRUCT__entry(
+        __field(const void *, skaddr)
+        __field(const void *, req)
+        __field(__u16, sport)
+        __field(__u16, dport)
+        __array(__u8, saddr, 4)
+        __array(__u8, daddr, 4)
+        __array(__u8, saddr_v6, 16)
+        __array(__u8, daddr_v6, 16)
+    ),
+
+    TP_fast_assign(
+        struct inet_request_sock *ireq = inet_rsk(req);
+        __be32 *p32;
+
+        __entry->skaddr = sk;
+        __entry->req = req;
+
+        __entry->sport = ireq->ir_num;
+        __entry->dport = ntohs(ireq->ir_rmt_port);
+
+        p32 = (__be32 *) __entry->saddr;
+        *p32 = ireq->ir_loc_addr;
+
+        p32 = (__be32 *) __entry->daddr;
+        *p32 = ireq->ir_rmt_addr;
+
+        TP_STORE_ADDRS(__entry, ireq->ir_loc_addr, ireq->ir_rmt_addr,
+                  ireq->ir_v6_loc_addr, ireq->ir_v6_rmt_addr);
+    ),
+
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+          __entry->sport, __entry->dport,
+          __entry->saddr, __entry->daddr,
+          __entry->saddr_v6, __entry->daddr_v6)
+);
+
 #include "net_probe_common.h"
 
 TRACE_EVENT(tcp_probe,
