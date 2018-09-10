@@ -396,19 +396,20 @@ TRACE_EVENT(tcp_cleanup_rbuf,
 
 TRACE_EVENT(tcp_set_state,
 
-    TP_PROTO(struct sock *sk, int state),
+    TP_PROTO(const struct sock *sk, const int oldstate, const int newstate),
 
-    TP_ARGS(sk, state),
+    TP_ARGS(sk, oldstate, newstate),
 
     TP_STRUCT__entry(
         __field(const void *, skaddr)
+        __field(int, oldstate)
+        __field(int, newstate)
         __field(__u16, sport)
         __field(__u16, dport)
         __array(__u8, saddr, 4)
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
-        __field(__s32, state)
     ),
 
     TP_fast_assign(
@@ -416,6 +417,8 @@ TRACE_EVENT(tcp_set_state,
         __be32 *p32;
 
         __entry->skaddr = sk;
+        __entry->oldstate = oldstate;
+        __entry->newstate = newstate;
 
         __entry->sport = ntohs(inet->inet_sport);
         __entry->dport = ntohs(inet->inet_dport);
@@ -428,16 +431,15 @@ TRACE_EVENT(tcp_set_state,
 
         TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
-
-        __entry->state = state;
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m state=%d",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d",
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,
-          __entry->state)
-)
+          __entry->oldstate,
+          __entry->newstate)
+);
 
 TRACE_EVENT(tcp_retransmit_synack,
 

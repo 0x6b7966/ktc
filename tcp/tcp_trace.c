@@ -119,7 +119,7 @@ static struct jprobe tcp_cleanup_rbuf_jp = {
 
 static void jtcp_set_state(struct sock *sk, int state)
 {
-    trace_tcp_set_state(sk, state);
+    trace_tcp_set_state(sk, sk->sk_state, state);
     jprobe_return();
 }
 
