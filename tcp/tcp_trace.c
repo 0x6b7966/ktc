@@ -130,6 +130,19 @@ static struct jprobe tcp_set_state_jp = {
     .entry = jtcp_set_state,
 };
 
+static void jtcp_destroy_sock(struct sock *sk)
+{
+    trace_tcp_destroy_sock(sk);
+    jprobe_return();
+}
+
+static struct jprobe tcp_destroy_sock = {
+    .kp = {
+        .symbol_name = "tcp_v4_destroy_sock",
+    },
+    .entry =jtcp_destroy_sock,
+};
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
@@ -140,6 +153,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_sendmsg_jp,
     &tcp_cleanup_rbuf_jp,
     &tcp_set_state_jp,
+    &tcp_destroy_sock,
 };
 
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
