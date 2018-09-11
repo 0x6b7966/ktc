@@ -61,6 +61,7 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
+        __field(int, state)
     ),
 
     TP_fast_assign(
@@ -81,11 +82,14 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
 
         TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
                   sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
+
+        __entry->state = sk->sk_state;
+
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c, state=%d",
           __entry->sport, __entry->dport, __entry->saddr, __entry->daddr,
-          __entry->saddr_v6, __entry->daddr_v6)
+          __entry->saddr_v6, __entry->daddr_v6, __entry->state)
 );
 
 DEFINE_EVENT(tcp_event_sk_skb, tcp_retransmit_skb,
@@ -114,6 +118,7 @@ DECLARE_EVENT_CLASS(tcp_event_sk,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
+        __field(int, state)
     ),
 
     TP_fast_assign(
@@ -135,10 +140,11 @@ DECLARE_EVENT_CLASS(tcp_event_sk,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c, state=%d",
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
-          __entry->saddr_v6, __entry->daddr_v6)
+          __entry->saddr_v6, __entry->daddr_v6,
+          __entry->state)
 );
 
 DEFINE_EVENT(tcp_event_sk, tcp_send_loss_probe,
