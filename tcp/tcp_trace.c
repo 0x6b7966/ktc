@@ -63,7 +63,12 @@ static struct jprobe tcp_v6_connect_jp = {
 
 static int jtcp_rcv_state_process(struct sock *sk, struct sk_buff *skb, const struct tcphdr *th, unsigned int len)
 {
+    if (sk->__sk_common.skc_state != TCP_SYN_SENT)
+	goto end;
+
     trace_tcp_rcv_state_process(sk, skb, th, len);
+
+end:
     jprobe_return();
     return 0;
 }
