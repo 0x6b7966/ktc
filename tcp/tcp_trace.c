@@ -164,7 +164,7 @@ static void jtcp_receive_reset(struct sock *sk)
 
 static struct jprobe tcp_receive_reset_jp = {
     .kp = {
-        .symbol_name = "tcp_rcv_space_adjust",
+        .symbol_name = "tcp_reset",
     },
     .entry = jtcp_receive_reset,
 };
