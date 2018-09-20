@@ -14,19 +14,20 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-opt_tlp=0; opt_stacks=0;
+opt_duration=0; duration=; opt_tlp=0; opt_stacks=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
-    USAGE: tcpretrans [-hlc]
-                      -h        # help message
-                      -l        # include tail loss probes attempts
-                      -s        # print stack traces
-                      -c        # count occurred retransmits per flow
+    USAGE: tcpretrans [-hlc] [duration]
+                      -h          # help message
+                      -l          # include tail loss probes attempts
+                      -s          # print stack traces
+                      -c          # count occurred retransmits per flow
+                      duration    # duration seconds, and use buffers
     eg,
-           tcpretrans           # trace TCP retransmits
-           tcpretrans -l        # include TLP attempts
+           tcpretrans             # trace TCP retransmits
+           tcpretrans -l          # include TLP attempts
 END
     exit
 }
@@ -74,10 +75,23 @@ do
     h|?) usage ;;
     esac
 done
-echo "Tracing retransmits ... Hit Ctrl-C to end"
+shift $(( $OPTIND - 1 ))
+if (( $# )); then
+    opt_duration=1
+    duration=$1
+    shift
+fi
+
+### option logic
+if (( opt_duration )); then
+    echo "Tracing retransmits for $duration seconds (buffered)..."
+else
+    echo "Tracing retransmits ... Hit Ctrl-C to end"
+fi
 
 # select awk
-awk=gawk
+(( opt_duration )) && use=mawk || use=gawk	# workaround for mawk fflush()
+[[ -x /usr/bin/$use ]] && awk=$use || awk=awk
 wroteflock=1
 
 ### check permissions
@@ -123,7 +137,14 @@ offset=$($awk 'BEGIN { o = 0; }
 
 ### print trace buffer
 warn "echo > trace"
-cat trace_pipe | $awk -v o=$offset -v stacks=$opt_stacks '
+( if (( opt_duration )); then
+    # wait then dump buffer
+    sleep $duration
+    cat trace
+else
+    # print buffer live
+    cat trace_pipe
+fi ) | $awk -v o=$offset -v stacks=$opt_stacks '
     BEGIN {
         m[1]="TCP_ESTABLISHED";
         m[2]="TCP_SYN_SENT";
@@ -138,15 +159,15 @@ cat trace_pipe | $awk -v o=$offset -v stacks=$opt_stacks '
     }
 
     $1 != "#" {
-	if (stacks) {
-	     if ($0 ~ /^ =>/) {
-	     	print $0
-	     	next
-	     }
-	     if ($0 ~ /<stack trace>/) {
-		next
-	     }
-	}
+        if (stacks) {
+             if ($0 ~ /^ =>/) {
+                print $0
+                next
+             }
+             if ($0 ~ /<stack trace>/) {
+                next
+             }
+        }
 
         pid = $1
         sub(/.*-/, "", pid)
