@@ -14,7 +14,7 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-opt_duration=0; duration=; opt_tlp=0; opt_stacks=0;
+opt_duration=0; duration=; opt_tlp=0; opt_count=0; opt_stacks=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -67,9 +67,10 @@ function edie {
 }
 
 ### process options
-while getopts hls opt
+while getopts chls opt
 do
     case $opt in
+    c) opt_count=1 ;;
     l) opt_tlp=1 ;;
     s) opt_stacks=1 ;;
     h|?) usage ;;
@@ -118,11 +119,18 @@ if (( opt_stacks )); then
         warn "unable to enable stacktraces."
     fi
 fi
-printf "%-8s %-6s" "TIME" "PID"
-printf "%-20s" "LADDR:LPORT"
-printf " T> "
-printf "%-20s" "RADDR:RPORT"
-printf "%-12s\n" "STATE"
+
+if (( opt_count )); then
+    printf "%-25s" "LADDR:LPORT"
+    printf "%-25s" "RADDR:RPORT"
+    printf "%-12s\n" "RETRANSMITS"
+else 
+    printf "%-8s %-6s" "TIME" "PID"
+    printf "%-20s" "LADDR:LPORT"
+    printf " T> "
+    printf "%-20s" "RADDR:RPORT"
+    printf "%-12s\n" "STATE"
+fi
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -144,7 +152,7 @@ warn "echo > trace"
 else
     # print buffer live
     cat trace_pipe
-fi ) | $awk -v o=$offset -v stacks=$opt_stacks '
+fi ) | $awk -v o=$offset -v count=$opt_count -v stacks=$opt_stacks '
     BEGIN {
         m[1]="TCP_ESTABLISHED";
         m[2]="TCP_SYN_SENT";
@@ -156,6 +164,8 @@ fi ) | $awk -v o=$offset -v stacks=$opt_stacks '
         m[8]="TCP_CLOSE_WAIT";
         m[9]="TCP_LAST_ACK";
         m[10]="TCP_LISTEN";
+
+        delete c[0]
     }
 
     $1 != "#" {
@@ -179,16 +189,32 @@ fi ) | $awk -v o=$offset -v stacks=$opt_stacks '
         rport = $(6+o); sub(/.*=/, "", rport)
         state = $(11+o); sub(/.*=/, "", state)
 
-        printf "%-8s %-6s", strftime("%H:%M:%S", time), pid
-        printf "%-20s", (laddr":"lport)
-        printf " %s> ", ($0 ~ /tcp_send_loss_probe/ ? "L" : "R")
-        printf "%-20s", (raddr":"rport)
-        printf "%-12s\n", m[state]
+        if (count) {
+           if ((laddr":"lport"-"raddr":"rport) in c)
+              ++c[(laddr":"lport"-"raddr":"rport)]
+           else
+              c[(laddr":"lport"-"raddr":"rport)] = 1
+        } else {
+            printf "%-8s %-6s", strftime("%H:%M:%S", time), pid
+            printf "%-20s", (laddr":"lport)
+            printf " %s> ", ($0 ~ /tcp_send_loss_probe/ ? "L" : "R")
+            printf "%-20s", (raddr":"rport)
+            printf "%-12s\n", m[state]
 
-        next
+            next
+        }
     }
 
     $0 ~ /LOST.*EVENTS/ { print "WARNING: " $0 > "/dev/stderr" }
+
+    END {
+        for (k in c) {
+           split(k, a, "-") 
+           printf "%-25s", a[1] 
+           printf "%-25s", a[2]
+           printf "%-6s\n", c[k]
+        }
+    }
 '
 
 ### end tracing
