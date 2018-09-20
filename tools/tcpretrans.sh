@@ -15,6 +15,7 @@ tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
 opt_tlp=0;
+trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
@@ -113,16 +114,16 @@ offset=$($awk 'BEGIN { o = 0; }
 warn "echo > trace"
 cat trace_pipe | $awk -v o=$offset '
     BEGIN {
-	m[1]="TCP_ESTABLISHED"; 
-	m[2]="TCP_SYN_SENT";
- 	m[3]="TCP_SYN_RECV";
-	m[4]="TCP_FIN_WAIT1";
-	m[5]="TCP_FIN_WAIT2";
-	m[6]="TCP_TIME_WAIT";
-	m[7]="TCP_CLOSE";
-	m[8]="TCP_CLOSE_WAIT";
-	m[9]="TCP_LAST_ACK";
-	m[10]="TCP_LISTEN";
+    m[1]="TCP_ESTABLISHED";
+    m[2]="TCP_SYN_SENT";
+    m[3]="TCP_SYN_RECV";
+    m[4]="TCP_FIN_WAIT1";
+    m[5]="TCP_FIN_WAIT2";
+    m[6]="TCP_TIME_WAIT";
+    m[7]="TCP_CLOSE";
+    m[8]="TCP_CLOSE_WAIT";
+    m[9]="TCP_LAST_ACK";
+    m[10]="TCP_LISTEN";
     }
 
     #common fields
@@ -141,11 +142,11 @@ cat trace_pipe | $awk -v o=$offset '
             raddr = $(8+o); sub(/.*=/, "", raddr)
             rport = $(6+o); sub(/.*=/, "", rport)
             state = $(11+o); sub(/.*=/, "", state)
-	    
+
             printf "%-12s %-12s %-6s",  strftime("%H:%M:%S", time), comm, pid
             printf "%-25s", (laddr":"lport)
             printf "%-25s", (raddr":"rport)
-	    printf "%-15s\n", m[state]
+        printf "%-15s\n", m[state]
 
             next
     }
