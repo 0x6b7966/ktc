@@ -94,11 +94,11 @@ if (( opt_tlp )); then
         edie "ERROR: enabling . Exiting."
     fi
 fi
-printf "%-12s %-12s %-6s" "TIME" "COMM" "PID"
-printf "%-25s" "LADDR:LPORT"
-printf " -- "
-printf "%-25s" "RADDR:RPORT"
-printf "%-15s\n" "STATE"
+printf "%-8s %-6s" "TIME" "PID"
+printf "%-20s" "LADDR:LPORT"
+printf " T> "
+printf "%-20s" "RADDR:RPORT"
+printf "%-12s\n" "STATE"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -139,11 +139,11 @@ cat trace_pipe | $awk -v o=$offset '
         rport = $(6+o); sub(/.*=/, "", rport)
         state = $(11+o); sub(/.*=/, "", state)
 
-        printf "%-12s %-12s %-6s",  strftime("%H:%M:%S", time), comm, pid
-        printf "%-25s", (laddr":"lport)
-        printf " %s> " ($0 ~/tcp_send_loss_probe/ ? "L" : "R")
-        printf "%-25s", (raddr":"rport)
-        printf "%-15s\n", m[state]
+        printf "%-8s %-6s", strftime("%H:%M:%S", time), pid
+        printf "%-20s", (laddr":"lport)
+        printf " %s> ", ($0 ~/tcp_send_loss_probe/ ? "L" : "R")
+        printf "%-20s", (raddr":"rport)
+        printf "%-12s\n", m[state]
 
         next
     }
