@@ -62,7 +62,7 @@ function edie {
 }
 
 ### process options
-while getopts h:l:c opt
+while getopts hl opt
 do
     case $opt in
     l) opt_tlp=1 ;;
@@ -96,6 +96,7 @@ if (( opt_tlp )); then
 fi
 printf "%-12s %-12s %-6s" "TIME" "COMM" "PID"
 printf "%-25s" "LADDR:LPORT"
+printf " -- "
 printf "%-25s" "RADDR:RPORT"
 printf "%-15s\n" "STATE"
 
@@ -137,18 +138,18 @@ cat trace_pipe | $awk -v o=$offset '
 
     # tcp_retransmit_skb
     $1 != "#" && $0 ~/tcp_retransmit_skb/ {
-            laddr = $(7+o); sub(/.*=/, "", laddr)
-            lport = $(5+o); sub(/.*=/, "", lport)
-            raddr = $(8+o); sub(/.*=/, "", raddr)
-            rport = $(6+o); sub(/.*=/, "", rport)
-            state = $(11+o); sub(/.*=/, "", state)
+        laddr = $(7+o); sub(/.*=/, "", laddr)
+        lport = $(5+o); sub(/.*=/, "", lport)
+        raddr = $(8+o); sub(/.*=/, "", raddr)
+        rport = $(6+o); sub(/.*=/, "", rport)
+        state = $(11+o); sub(/.*=/, "", state)
 
-            printf "%-12s %-12s %-6s",  strftime("%H:%M:%S", time), comm, pid
-            printf "%-25s", (laddr":"lport)
-            printf "%-25s", (raddr":"rport)
+        printf "%-12s %-12s %-6s",  strftime("%H:%M:%S", time), comm, pid
+        printf "%-25s", (laddr":"lport)
+        printf "%-25s", (raddr":"rport)
         printf "%-15s\n", m[state]
 
-            next
+        next
     }
 
     $0 ~ /LOST.*EVENTS/ { print "WARNING: " $0 > "/dev/stderr" }
