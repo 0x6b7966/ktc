@@ -14,7 +14,7 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-opt_tlp=0;
+opt_tlp=0; opt_stacks=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -22,6 +22,7 @@ function usage {
     USAGE: tcpretrans [-hlc]
                       -h        # help message
                       -l        # include tail loss probes attempts
+                      -s        # print stack traces
                       -c        # count occurred retransmits per flow
     eg,
            tcpretrans           # trace TCP retransmits
@@ -44,6 +45,9 @@ function end {
     if (( opt_tlp )); then
         warn "echo 0 > events/tcp/tcp_send_loss_probe/enable"
     fi
+    if (( opt_stacks )); then
+        warn "echo 0 > options/stacktrace"
+    fi
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
@@ -62,11 +66,12 @@ function edie {
 }
 
 ### process options
-while getopts hl opt
+while getopts hls opt
 do
     case $opt in
     l) opt_tlp=1 ;;
-    h|?)	usage ;;
+    s) opt_stacks=1 ;;
+    h|?) usage ;;
     esac
 done
 echo "Tracing retransmits ... Hit Ctrl-C to end"
@@ -94,6 +99,11 @@ if (( opt_tlp )); then
         edie "ERROR: enabling . Exiting."
     fi
 fi
+if (( opt_stacks )); then
+    if ! echo 1 > options/stacktrace; then
+        warn "unable to enable stacktraces."
+    fi
+fi
 printf "%-8s %-6s" "TIME" "PID"
 printf "%-20s" "LADDR:LPORT"
 printf " T> "
@@ -113,23 +123,32 @@ offset=$($awk 'BEGIN { o = 0; }
 
 ### print trace buffer
 warn "echo > trace"
-cat trace_pipe | $awk -v o=$offset '
+cat trace_pipe | $awk -v o=$offset -v stacks=$opt_stacks '
     BEGIN {
-    m[1]="TCP_ESTABLISHED";
-    m[2]="TCP_SYN_SENT";
-    m[3]="TCP_SYN_RECV";
-    m[4]="TCP_FIN_WAIT1";
-    m[5]="TCP_FIN_WAIT2";
-    m[6]="TCP_TIME_WAIT";
-    m[7]="TCP_CLOSE";
-    m[8]="TCP_CLOSE_WAIT";
-    m[9]="TCP_LAST_ACK";
-    m[10]="TCP_LISTEN";
+        m[1]="TCP_ESTABLISHED";
+        m[2]="TCP_SYN_SENT";
+        m[3]="TCP_SYN_RECV";
+        m[4]="TCP_FIN_WAIT1";
+        m[5]="TCP_FIN_WAIT2";
+        m[6]="TCP_TIME_WAIT";
+        m[7]="TCP_CLOSE";
+        m[8]="TCP_CLOSE_WAIT";
+        m[9]="TCP_LAST_ACK";
+        m[10]="TCP_LISTEN";
     }
 
     $1 != "#" {
-        comm = pid = $1
-        sub(/-[0-9][0-9]*/, "", comm)
+	if (stacks) {
+	     if ($0 ~ /^ =>/) {
+	     	print $0
+	     	next
+	     }
+	     if ($0 ~ /<stack trace>/) {
+		next
+	     }
+	}
+
+        pid = $1
         sub(/.*-/, "", pid)
         time = $(3+o); sub(":", "", time)
 
@@ -141,7 +160,7 @@ cat trace_pipe | $awk -v o=$offset '
 
         printf "%-8s %-6s", strftime("%H:%M:%S", time), pid
         printf "%-20s", (laddr":"lport)
-        printf " %s> ", ($0 ~/tcp_send_loss_probe/ ? "L" : "R")
+        printf " %s> ", ($0 ~ /tcp_send_loss_probe/ ? "L" : "R")
         printf "%-20s", (raddr":"rport)
         printf "%-12s\n", m[state]
 
