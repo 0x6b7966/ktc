@@ -127,17 +127,12 @@ cat trace_pipe | $awk -v o=$offset '
     m[10]="TCP_LISTEN";
     }
 
-    #common fields
     $1 != "#" {
-        # task name can contain dashes
         comm = pid = $1
         sub(/-[0-9][0-9]*/, "", comm)
         sub(/.*-/, "", pid)
         time = $(3+o); sub(":", "", time)
-    }
 
-    # tcp_retransmit_skb
-    $1 != "#" && $0 ~/tcp_retransmit_skb/ {
         laddr = $(7+o); sub(/.*=/, "", laddr)
         lport = $(5+o); sub(/.*=/, "", lport)
         raddr = $(8+o); sub(/.*=/, "", raddr)
@@ -146,6 +141,7 @@ cat trace_pipe | $awk -v o=$offset '
 
         printf "%-12s %-12s %-6s",  strftime("%H:%M:%S", time), comm, pid
         printf "%-25s", (laddr":"lport)
+        printf " %s> " ($0 ~/tcp_send_loss_probe/ ? "L" : "R")
         printf "%-25s", (raddr":"rport)
         printf "%-15s\n", m[state]
 
