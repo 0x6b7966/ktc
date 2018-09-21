@@ -17,15 +17,26 @@ trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
-    USAGE: tcpretrans [-hlc] [duration]
+    USAGE: tcpstates [-hTtwsLD] [duration]
                       -h          # help message
-                      -l          # include tail loss probes attempts
-                      -s          # print stack traces
-                      -c          # count occurred retransmits per flow
+                      -T          # include time column on output (HH:MM:SS)
+                      -t          # include timestamp on output (seconds)
+                      -w          # wide column output (fits IPv6 addresses)
+                      -s          # comma separated values output
+                      -L          # comma-separated list of local ports to trace
+                      -D          # comma-separated list of remote ports to trace
                       duration    # duration seconds, and use buffers
     eg,
-           tcpretrans             # trace TCP retransmits
-           tcpretrans -l          # include TLP attempts
+         ./tcpstates              # trace all TCP state changes
+         ./tcpstates -t           # include timestamp column
+         ./tcpstates -T           # include time column (HH:MM:SS)
+         ./tcpstates -w           # wider colums (fit IPv6)
+         ./tcpstates -stT         # csv output, with times & timestamps
+         ./tcpstates -L 80        # only trace local port 80
+         ./tcpstates -L 80,81     # only trace local ports 80 and 81
+         ./tcpstates -D 80        # only trace remote port 80
+         ./tcpstates              # trace TCP retransmits
+         ./tcpstates -l           # include TLP attempts
 END
     exit
 }
@@ -103,7 +114,7 @@ fi
 
 (( opt_time )) && printf "%-8s " "TIME"
 (( opt_timestamp )) && printf "%-8s " "TIME(s)"
-printf "%-30s " "SKADDR"
+printf "%-20s " "SKADDR"
 printf "%-8s " "C-PID"
 printf "%-12s " "C-COMM"
 printf "%-20s " "LADDR"
@@ -155,14 +166,15 @@ fi ) | $awk -v o=$offset -v time=$opt_time -v timestamp=$opt_timestamp '
         sub(/.*-/, "", pid)
         time = $(3+o); sub(":", "", time)
 
-        laddr = $(7+o); sub(/.*=/, "", laddr)
-        lport = $(5+o); sub(/.*=/, "", lport)
-        raddr = $(8+o); sub(/.*=/, "", raddr)
-        rport = $(6+o); sub(/.*=/, "", rport)
-        ostate = $(11+o); sub(/.*=/, "", ostate)
-        nstate = $(12+o); sub(/.*=/, "", nstate)
+        skaddr = $(5+o); sub(/.*=/, "", skaddr)
+        laddr = $(8+o); sub(/.*=/, "", laddr)
+        lport = $(6+o); sub(/.*=/, "", lport)
+        raddr = $(9+o); sub(/.*=/, "", raddr)
+        rport = $(7+o); sub(/.*=/, "", rport)
+        ostate = $(12+o); sub(/.*=/, "", ostate)
+        nstate = $(13+o); sub(/.*=/, "", nstate)
 
-        printf "%-30s ", 0
+        printf "%-20s ", skaddr
         printf "%-8s %-12s ", pid, comm
         printf "%-20s ", laddr
         printf "%-6s ", lport

@@ -440,7 +440,8 @@ TRACE_EVENT(tcp_set_state,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d",
+    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d",
+          __entry->skaddr,
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,
