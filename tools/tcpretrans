@@ -122,9 +122,10 @@ fi
 
 if (( opt_count )); then
     printf "%-25s" "LADDR:LPORT"
+    printf "%-4s" "    "
     printf "%-25s" "RADDR:RPORT"
     printf "%-12s\n" "RETRANSMITS"
-else 
+else
     printf "%-8s %-6s" "TIME" "PID"
     printf "%-20s" "LADDR:LPORT"
     printf " T> "
@@ -209,8 +210,9 @@ fi ) | $awk -v o=$offset -v count=$opt_count -v stacks=$opt_stacks '
 
     END {
         for (k in c) {
-           split(k, a, "-") 
-           printf "%-25s", a[1] 
+           split(k, a, "-")
+           printf "%-25s", a[1]
+	   printf "%-4s", "<->"
            printf "%-25s", a[2]
            printf "%-6s\n", c[k]
         }
