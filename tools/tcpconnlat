@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# tcpconnlat    Trace TCP active connection latency (connect).
+#
+# USAGE: tcpconnlat [-h] [-t] [-p PID]
+#
+# This uses dynamic tracing of kernel functions, and will need to be updated
+# to match kernel changes.
+#
+# 25-Feb-2018   Ethercflow   Created this.
+
+### default variables
+tracing=/sys/kernel/debug/tracing
+flock=/var/tmp/.ftrace-lock
+bufsize_kb=4096
+start_ts=0; opt_duration=0; duration=; opt_timestamp=0;
+trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
+
+function usage {
+    cat <<-END >&2
+    USAGE: tcpconnlat [-ht]
+                       -h       # help message
+                       -t       # include timestamp on output
+    eg,
+         ./tcpconnlat           # trace all TCP connect()s
+         ./tcpconnlat -t        # include timestamps
+END
+
+   exit
+}
+
+function warn {
+    if ! eval "$@"; then
+        echo >&2 "WARNING: command failed \"$@\""
+    fi
+}
+
+function end {
+    echo 2>/dev/null
+    echo "Ending tracing..." 2>/dev/null
+    cd $tracing
+    warn "echo 0 > events/tcp/tcp_v4_connect_entry/enable"
+    warn "echo 0 > events/tcp/tcp_rcv_state_process/enable"
+    warn "echo > trace"
+    (( wroteflock )) && warn "rm $flock"
+}
+
+function die {
+    echo >&2 "$@"
+    exit 1
+}
+
+function edie {
+    # die with a quiet end()
+    echo >&2 "$@"
+    exec >/dev/null 2>&1
+    end
+    exit 1
+}
+
+### process options
+while getopts ht opt
+do
+    case $opt in
+    t) opt_timestamp=1 ;;
+    h|?) usage ;;
+    esac
+done
+shift $(( $OPTIND - 1 ))
+if (( $# )); then
+    opt_duration=1
+    duration=$1
+    shift
+fi
+
+### option logic
+if (( opt_duration )); then
+    echo "Tracing tcpconnect for $duration seconds (buffered)..."
+else
+    echo "Tracing tcpconnect ... Hit Ctrl-C to end"
+fi
+
+# select awk
+(( opt_duration )) && use=mawk || use=gawk	# workaround for mawk fflush()
+[[ -x /usr/bin/$use ]] && awk=$use || awk=awk
+wroteflock=1
+
+### check permissions
+cd $tracing || die "ERROR: accessing tracing. Root user? Kernel has FTRACE?
+    debugfs mounted? (mount -t debugfs debugfs /sys/kernel/debug)"
+
+### ftrace lock
+[[ -e $flock ]] && die "ERROR: ftrace may be in use by PID $(cat $flock) $flock"
+echo $$ > $flock || die "ERROR: unable to write $flock."
+
+### setup and begin tracing
+echo nop > current_tracer
+warn "echo $bufsize_kb > buffer_size_kb"
+if ! echo 1 > events/tcp/tcp_v4_connect_entry/enable; then
+    edie "ERROR: enabling . Exiting."
+fi
+if ! echo 1 > events/tcp/tcp_rcv_state_process/enable; then
+    edie "ERROR: enabling . Exiting."
+fi
+
+(( opt_timestamp )) && printf "%-12s " "TIME(s)"
+printf "%-6s %-12s %-16s %-5s %-16s %-5s %s\n" \
+    "PID", "COMM", "SADDR","SPORT", "DADDR", "DPORT", "LAT(ms)"
+
+#
+# Determine output format. It may be one of the following (newest first):
+#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
+#           TASK-PID    CPU#    TIMESTAMP  FUNCTION
+# To differentiate between them, the number of header fields is counted,
+# and an offset set, to skip the extra column when needed.
+#
+offset=$($awk 'BEGIN { o = 0; }
+    $1 == "#" && $2 ~ /TASK/ && NF == 6 { o = 1; }
+    $2 ~ /TASK/ { print o; exit }' trace)
+
+### print trace buffer
+warn "echo > trace"
+( if (( opt_duration )); then
+    # wait then dump buffer
+    sleep $duration
+    cat trace
+else
+    # print buffer live
+    cat trace_pipe
+fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
+    # common fields
+    $1 != "#" {
+        # task name can contain dashes
+        comm = pid = $1
+        sub(/-[0-9][0-9]*/, "", comm)
+        sub(/.*-/, "", pid)
+        time = $(3+o); sub(":", "", time)
+    }
+
+    # tcp_v4_connect_entry
+    $1 != "#" && $0 ~ /tcp_v4_connect_entry/ {
+        skaddr = $(5+o); sub(/.*=/, "", skaddr)
+        starts[skaddr] = time
+        next
+    }
+
+    # tcp_rcv_state_process
+    $1 != "#" && $0 ~ /tcp_rcv_state_process/ {
+        skaddr = $(5+o); sub(/.*=/, "", skaddr)
+
+        if (skaddr in starts) {
+            delta_ms = (time - starts[skaddr]) * 1000
+            saddr = $(8+o); sub(/.*=/, "", saddr)
+            sport = $(6+o); sub(/.*=/, "", sport)
+            daddr = $(9+o); sub(/.*=/, "", daddr)
+            dport = $(7+o); sub(/.*=/, "", dport)
+
+            if (opt_timestamp) {
+                if (start_ts == 0)
+                    start_ts = time
+                lasted_s = time - start_ts
+                printf "%-12.6f ", lasted_s
+            }
+
+            printf "%-6s %-12s %-16s %-5s %-16s %-5s %s\n", pid, comm, saddr, sport, daddr, dport, delta_ms
+
+            delete starts[skaddr]
+        } else {
+            print "WARNING: " $0 > "/dev/stderr"
+        }
+
+        next
+    }
+
+    $0 ~ /LOST.*EVENTS/ { print "WARNING: " $0 > "/dev/stderr" }
+'
+
+### end tracing
+end
