@@ -17,26 +17,14 @@ trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
-    USAGE: tcpstates [-hTtwsLD] [duration]
+    USAGE: tcpstates [-hTt] 
                       -h          # help message
                       -T          # include time column on output (HH:MM:SS)
                       -t          # include timestamp on output (seconds)
-                      -w          # wide column output (fits IPv6 addresses)
-                      -s          # comma separated values output
-                      -L          # comma-separated list of local ports to trace
-                      -D          # comma-separated list of remote ports to trace
-                      duration    # duration seconds, and use buffers
     eg,
          ./tcpstates              # trace all TCP state changes
          ./tcpstates -t           # include timestamp column
          ./tcpstates -T           # include time column (HH:MM:SS)
-         ./tcpstates -w           # wider colums (fit IPv6)
-         ./tcpstates -stT         # csv output, with times & timestamps
-         ./tcpstates -L 80        # only trace local port 80
-         ./tcpstates -L 80,81     # only trace local ports 80 and 81
-         ./tcpstates -D 80        # only trace remote port 80
-         ./tcpstates              # trace TCP retransmits
-         ./tcpstates -l           # include TLP attempts
 END
     exit
 }
