@@ -98,20 +98,20 @@ echo $$ > $flock || die "ERROR: unable to write $flock."
 ### setup and begin tracing
 echo nop > current_tracer
 warn "echo $bufsize_kb > buffer_size_kb"
-if !echo 1 > events/tcp/tcp_v4_connect_entry/enable; then
+if ! echo 1 > events/tcp/tcp_v4_connect_entry/enable; then
     edie "ERROR: enabling . Exiting."
 fi 
-if !echo 1 > events/tcp/tcp_v4_connect_return/enable; then
+if ! echo 1 > events/tcp/tcp_v4_connect_return/enable; then
     edie "ERROR: enabling . Exiting."
 fi
 
-(( opt_timestamp )) && printf "%-8s " "TIME(s)"
+(( opt_timestamp )) && printf "%-12s " "TIME(s)"
 printf "%-8s " "PID"
 printf "%-12s " "COMM"
 printf "%-20s " "SADDR"
 printf "%-6s " "SPORT"
 printf "%-20s " "DADDR"
-printf "%-6s\n " "DPORT"
+printf "%-6s\n" "DPORT"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -153,28 +153,30 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
     # tcp_v4_connect_return
     $1 != "#" && $0 ~ /tcp_v4_connect_return/ {
         if (pid in conns) {
-           eskaddr = conns[pid]
-           rskaddr = $(5+o); sub(/.*=/, "", skaddr)
+            eskaddr = conns[pid]
+            rskaddr = $(5+o); sub(/.*=/, "", rskaddr)
 
-           if (eskaddr == rskaddr) {
-              saddr = $(8+o); sub(/.*=/, "", saddr)
-              sport = $(6+o); sub(/.*=/, "", sport)
-              daddr = $(9+o); sub(/.*=/, "", daddr)
-              dport = $(7+o); sub(/.*=/, "", dport)
+            if (eskaddr == rskaddr) {
+                saddr = $(8+o); sub(/.*=/, "", saddr)
+                sport = $(6+o); sub(/.*=/, "", sport)
+                daddr = $(9+o); sub(/.*=/, "", daddr)
+                dport = $(7+o); sub(/.*=/, "", dport)
 
-              if (opt_timestamp) {
-	             if (start_ts == 0)
+                if (opt_timestamp) {
+	            if (start_ts == 0)
 	                start_ts = time 
-                 lasted_s = time - start_ts
-                 printf "%-8.6f ", lasted_s
-	          }
+                    lasted_s = time - start_ts
+                    printf "%-12.6f ", lasted_s
+	        }
 
-              printf "%-8s %-12s ", pid, comm
-              printf "%-20s ", saddr
-              printf "%-6s ", sport
-              printf "%-20s ", daddr
-              printf "%-6s\n ", dport
-           }
+                printf "%-8s %-12s ", pid, comm
+                printf "%-20s ", saddr
+                printf "%-6s ", sport
+                printf "%-20s ", daddr
+                printf "%-6s\n", dport
+            } else {
+		print "WARNING: " $0 > "/dev/stderr"
+	    }
         }
 
         next
