@@ -215,9 +215,9 @@ DEFINE_EVENT(tcp_event_conn_entry, tcp_v6_connect_entry,
 
 DECLARE_EVENT_CLASS(tcp_event_conn_return,
 
-    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len, int retval),
 
-    TP_ARGS(sk, uaddr, addr_len),
+    TP_ARGS(sk, uaddr, addr_len, retval),
 
     TP_STRUCT__entry(
         __field(const void *, skaddr)
@@ -227,6 +227,7 @@ DECLARE_EVENT_CLASS(tcp_event_conn_return,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
+        __field(int, retval)
     ),
 
     TP_fast_assign(
@@ -246,27 +247,30 @@ DECLARE_EVENT_CLASS(tcp_event_conn_return,
 
         TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
+
+        __entry->retval = retval;
     ),
 
-    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
+    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c, retval=%d",
           __entry->skaddr,
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
-          __entry->saddr_v6, __entry->daddr_v6)
+          __entry->saddr_v6, __entry->daddr_v6,
+          __entry->retval)
 );
 
 DEFINE_EVENT(tcp_event_conn_return, tcp_v4_connect_return,
 
-    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len, int retval),
 
-    TP_ARGS(sk, uaddr, addr_len)
+    TP_ARGS(sk, uaddr, addr_len, retval)
 );
 
 DEFINE_EVENT(tcp_event_conn_return, tcp_v6_connect_return,
 
-    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len),
+    TP_PROTO(struct sock *sk, struct sockaddr *uaddr, int addr_len, int retval),
 
-    TP_ARGS(sk, uaddr, addr_len)
+    TP_ARGS(sk, uaddr, addr_len, retval)
 );
 
 TRACE_EVENT(tcp_rcv_state_process,

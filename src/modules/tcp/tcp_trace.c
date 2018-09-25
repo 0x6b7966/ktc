@@ -214,8 +214,9 @@ static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
+    int retval = regs_return_value(regs);
 
-    trace_tcp_v4_connect_return(sk, uaddr, addr_len);
+    trace_tcp_v4_connect_return(sk, uaddr, addr_len, retval);
 
     return 0;
 }
@@ -249,8 +250,9 @@ static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
     struct sock *sk = ti->sk;
     struct sockaddr *uaddr = ti->uaddr;
     int addr_len = ti->addr_len;
+    int retval = regs_return_value(regs);
 
-    trace_tcp_v6_connect_return(sk, uaddr, addr_len);
+    trace_tcp_v6_connect_return(sk, uaddr, addr_len, retval);
 
     return 0;
 }
