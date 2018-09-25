@@ -75,9 +75,9 @@ fi
 
 ### option logic
 if (( opt_duration )); then
-    echo "Tracing retransmits for $duration seconds (buffered)..."
+    echo "Tracing tcpstates for $duration seconds (buffered)..."
 else
-    echo "Tracing retransmits ... Hit Ctrl-C to end"
+    echo "Tracing tcpstates ... Hit Ctrl-C to end"
 fi
 
 # select awk

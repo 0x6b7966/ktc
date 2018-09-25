@@ -77,9 +77,9 @@ fi
 
 ### option logic
 if (( opt_duration )); then
-    echo "Tracing retransmits for $duration seconds (buffered)..."
+    echo "Tracing tcpconnect for $duration seconds (buffered)..."
 else
-    echo "Tracing retransmits ... Hit Ctrl-C to end"
+    echo "Tracing tcpconnect ... Hit Ctrl-C to end"
 fi
 
 # select awk
@@ -153,6 +153,14 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
     # tcp_v4_connect_return
     $1 != "#" && $0 ~ /tcp_v4_connect_return/ {
         if (pid in conns) {
+            retval = $(12+o); sub(/.*=/, "", retval)
+
+	    if (retval != 0) {
+		delete conns[pid]
+		print "WARNING: " $0 > "/dev/stderr"
+		next
+	    }
+
             eskaddr = conns[pid]
             rskaddr = $(5+o); sub(/.*=/, "", rskaddr)
 
