@@ -12,7 +12,7 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-opt_duration=0; duration=; opt_time=0; opt_timestamp=0;
+start_ts=0; opt_duration=0; duration=; opt_time=0; opt_timestamp=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -70,7 +70,7 @@ function edie {
 }
 
 ### process options
-while getopts chls opt
+while getopts hTt opt
 do
     case $opt in
     T) opt_time=1 ;;
@@ -146,7 +146,7 @@ warn "echo > trace"
 else
     # print buffer live
     cat trace_pipe
-fi ) | $awk -v o=$offset -v time=$opt_time -v timestamp=$opt_timestamp '
+fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_timestamp=$opt_timestamp '
     BEGIN {
         m[1]="TCP_ESTABLISHED";
         m[2]="TCP_SYN_SENT";
@@ -180,10 +180,15 @@ fi ) | $awk -v o=$offset -v time=$opt_time -v timestamp=$opt_timestamp '
            span_ms = (time - tsp) * 1000
         last[sk] = time
         
-        if (time) 
-           printf "%-8s ", strftime("%H:%M:%S", time),
-        if (timestamp) 
-           printf "%-8s ", time 
+        if (opt_time) 
+           printf "%-8s ", strftime("%H:%M:%S", time)
+
+        if (opt_timestamp) {
+	   if (start_ts == 0)
+	       start_ts = time 
+           lasted_s = time - start_ts
+           printf "%-8.6f ", lasted_s
+	}
 
         printf "%-20s ", skaddr
         printf "%-8s %-12s ", pid, comm
@@ -194,7 +199,7 @@ fi ) | $awk -v o=$offset -v time=$opt_time -v timestamp=$opt_timestamp '
         printf "%-18s ", m[ostate]
         printf "%-4s", "->"
         printf "%-18s ", m[nstate]
-        printf "%-5s\n", span_ms
+        printf "%-5.3f\n", span_ms
 
         next
     }
