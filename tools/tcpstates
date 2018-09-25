@@ -172,11 +172,11 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
            printf "%-8s ", strftime("%H:%M:%S", time)
 
         if (opt_timestamp) {
-	       if (start_ts == 0)
+	    if (start_ts == 0)
 	          start_ts = time 
-           lasted_s = time - start_ts
-           printf "%-8.6f ", lasted_s
-	    }
+            lasted_s = time - start_ts
+            printf "%-8.6f ", lasted_s
+	}
 
         printf "%-20s ", skaddr
         printf "%-8s %-12s ", pid, comm

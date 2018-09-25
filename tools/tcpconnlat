@@ -103,8 +103,8 @@ if ! echo 1 > events/tcp/tcp_rcv_state_process/enable; then
 fi
 
 (( opt_timestamp )) && printf "%-12s " "TIME(s)"
-printf "%-6s %-12s %-16s %-5s %-16s %-5s %s\n" \
-    "PID", "COMM", "SADDR","SPORT", "DADDR", "DPORT", "LAT(ms)"
+printf "%-8s %-12s %-20s %-6s %-20s %-6s %s\n" \
+    "PID" "COMM" "SADDR" "SPORT" "DADDR" "DPORT" "LAT(ms)"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -126,7 +126,7 @@ warn "echo > trace"
 else
     # print buffer live
     cat trace_pipe
-fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
+fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp -v opt_duration=$opt_duration '
     # common fields
     $1 != "#" {
         # task name can contain dashes
@@ -140,6 +140,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
     $1 != "#" && $0 ~ /tcp_v4_connect_entry/ {
         skaddr = $(5+o); sub(/.*=/, "", skaddr)
         starts[skaddr] = time
+	comms[skaddr] = comm
+	pids[skaddr] = pid
         next
     }
 
@@ -161,9 +163,15 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
                 printf "%-12.6f ", lasted_s
             }
 
-            printf "%-6s %-12s %-16s %-5s %-16s %-5s %s\n", pid, comm, saddr, sport, daddr, dport, delta_ms
+            printf "%-8s %-12s %-20s %-6s %-20s %-6s %s\n",
+	    	pids[skaddr], comms[skaddr], saddr, sport, daddr, dport, delta_ms
+
+	    if (!opt_duration)
+	        fflush()
 
             delete starts[skaddr]
+  	    delete comms[skaddr]
+	    delete pids[skaddr]
         } else {
             print "WARNING: " $0 > "/dev/stderr"
         }
