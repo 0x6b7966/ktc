@@ -421,10 +421,13 @@ TRACE_EVENT(tcp_set_state,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
+        __field(__u64, rx_b)
+        __field(__u64, tx_b)
     ),
 
     TP_fast_assign(
         struct inet_sock *inet = inet_sk(sk);
+        struct tcp_sock *tp = tcp_sk(sk);
         __be32 *p32;
 
         __entry->skaddr = sk;
@@ -442,15 +445,21 @@ TRACE_EVENT(tcp_set_state,
 
         TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
+
+        __entry->rx_b = tp->bytes_received;
+        __entry->tx_b = tp->bytes_acked;
+
     ),
 
-    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d",
+    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d rx_b=%llu tx_b=%llu",
           __entry->skaddr,
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,
           __entry->oldstate,
-          __entry->newstate)
+          __entry->newstate,
+          __entry->rx_b,
+          __entry->tx_b)
 );
 
 TRACE_EVENT(tcp_retransmit_synack,
