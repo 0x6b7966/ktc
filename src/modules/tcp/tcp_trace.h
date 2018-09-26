@@ -451,7 +451,7 @@ TRACE_EVENT(tcp_set_state,
 
     ),
 
-    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d, rx_b=%llu, tx_b=%llu",
+    TP_printk("skaddr=%p sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c oldstate=%d newstate=%d rx_b=%llu tx_b=%llu",
           __entry->skaddr,
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
