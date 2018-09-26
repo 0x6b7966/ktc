@@ -107,8 +107,8 @@ fi
 
 (( opt_time )) && printf "%-8s " "TIME"
 (( opt_timestamp )) && printf "%-8s " "TIME(s)"
-printf "%-8s %-12s %-20s %-6s %-20s %-6s %6s %6s %-5s\n"
-"PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
+printf "%-8s %-12s %-20s %-6s %-20s %-6s %6s %6s %-5s\n" \
+	"PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -172,23 +172,22 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
            birth[skaddr] = time
 
         if (nstate == TCP_SYN_SENT || nstate == TCP_LAST_ACK) {
-           me[0] = pid;
-           me[1] = comm;
-           whoami[skaddr] = me; 
+           whoami_p[skaddr] = pid; 
+           whoami_c[skaddr] = comm; 
         }
 
         if (nstate != TCP_CLOSE) 
            next
 
         if (!skaddr in birth) {
-           delete whoami[skaddr];
+           delete whoami_p[skaddr];
+           delete whoami_c[skaddr];
            next
         }
 
         delta_us = (time - birth[skaddr]) * 1000000;
         delete birth[skaddr];
         
-        me = whoami[skaddr]
         laddr = $(8+o); sub(/.*=/, "", laddr)
         lport = $(6+o); sub(/.*=/, "", lport)
         raddr = $(9+o); sub(/.*=/, "", raddr)
@@ -197,7 +196,7 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         tx_b = $(15+o); sub(/.*=/, "", tx_b)
 
         printf "%-8s %-12s %-20s %-6s %-20s %-6s %6d %6d %-5s\n",
-               me[0], me[1], laddr, lport, raddr, rport, rx_b / 1024, tx_b / 1024, delta_us / 1000
+               whoami_p[skaddr], whoami_c[skaddr], laddr, lport, raddr, rport, rx_b / 1024, tx_b / 1024, delta_us / 1000
         
         next
     }
