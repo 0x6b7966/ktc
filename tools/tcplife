@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
 # tcplife   Trace the lifespan of TCP sessions and summarize.
-#           For Linux, uses BCC, BPF. Embedded C.
 #
 # USAGE: tcplife [-h] [-C] [-S] [-p PID] [interval [count]]
 #
@@ -11,7 +10,7 @@
 # manner: reading members of the tcp_info struct on TCP close. ie, we do not
 # trace send/receive.
 #
-# 25-Sep-2018   Brendan Gregg   Created this.
+# 25-Sep-2018   Ethercflow   Created this.
 
 ### default variables
 tracing=/sys/kernel/debug/tracing
@@ -205,8 +204,12 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
             printf "%-12.6f ", lasted_s
         }
 
-        printf "%-8s %-12s %-20s %-6s %-20s %-6s %6d %6d %-5s\n",
-               whoami_p[skaddr], whoami_c[skaddr], laddr, lport, raddr, rport, tx_b / 1024, rx_b / 1024, delta_us / 1000
+        if (skaddr in whoami_p && skaddr in whoami_c)
+           printf "%-8s %-12s ", whoami_p[skaddr], whoami_c[skaddr]
+        else
+           printf "%-8s %-12s ", pid, comm
+        printf "%-20s %-6s %-20s %-6s %6d %6d %-5s\n",
+               laddr, lport, raddr, rport, tx_b / 1024, rx_b / 1024, delta_us / 1000
         
 	    if (!opt_duration)
 	        fflush()
