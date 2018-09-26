@@ -214,8 +214,10 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
 	    if (!opt_duration)
 	        fflush()
 
-        whoami_p[skaddr]
-        whoami_c[skaddr]
+        if (skaddr in whoami_p)
+           delete whoami_p[skaddr]
+        if (skaddr in whoami_c)
+           delete whoami_c[skaddr]
 
         next
     }
