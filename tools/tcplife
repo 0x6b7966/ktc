@@ -168,20 +168,20 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         nstate = $(13+o); sub(/.*=/, "", nstate)
 
         if (nstate < TCP_FIN_WAIT1) 
-           birth[skaddr] = time
+            birth[skaddr] = time
 
         if (nstate == TCP_SYN_SENT || nstate == TCP_LAST_ACK) {
-           whoami_p[skaddr] = pid 
-           whoami_c[skaddr] = comm
+            whoami_p[skaddr] = pid 
+            whoami_c[skaddr] = comm
         }
 
         if (nstate != TCP_CLOSE) 
-           next
+            next
 
-        if (!skaddr in birth) {
-           delete whoami_p[skaddr]
-           delete whoami_c[skaddr]
-           next
+        if (!(skaddr in birth)) {
+            delete whoami_p[skaddr]
+            delete whoami_c[skaddr]
+            next
         }
 
         delta_us = (time - birth[skaddr]) * 1000000
@@ -195,7 +195,7 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         tx_b = $(15+o); sub(/.*=/, "", tx_b)
 
         if (opt_time) 
-           printf "%-8s ", strftime("%H:%M:%S", time)
+            printf "%-8s ", strftime("%H:%M:%S", time)
 
         if (opt_timestamp) {
             if (start_ts == 0)
@@ -211,13 +211,13 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         printf "%-20s %-6s %-20s %-6s %6d %6d %-5s\n",
                laddr, lport, raddr, rport, tx_b / 1024, rx_b / 1024, delta_us / 1000
         
-	    if (!opt_duration)
-	        fflush()
+	if (!opt_duration)
+	    fflush()
 
         if (skaddr in whoami_p)
-           delete whoami_p[skaddr]
+            delete whoami_p[skaddr]
         if (skaddr in whoami_c)
-           delete whoami_c[skaddr]
+            delete whoami_c[skaddr]
 
         next
     }
