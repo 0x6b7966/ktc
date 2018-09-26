@@ -106,7 +106,7 @@ if ! echo 1 > events/tcp/tcp_set_state/enable; then
 fi
 
 (( opt_time )) && printf "%-8s " "TIME"
-(( opt_timestamp )) && printf "%-8s " "TIME(s)"
+(( opt_timestamp )) && printf "%-12s " "TIME(s)"
 printf "%-8s %-12s %-20s %-6s %-20s %-6s %6s %6s %-5s\n" \
 	"PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
 
@@ -132,27 +132,27 @@ else
     cat trace_pipe
 fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_timestamp=$opt_timestamp '
     BEGIN {
-        m[1] = "TCP_ESTABLISHED";
-        m[2] = "TCP_SYN_SENT";
-        m[3] = "TCP_SYN_RECV";
-        m[4] = "TCP_FIN_WAIT1";
-        m[5] = "TCP_FIN_WAIT2";
-        m[6] = "TCP_TIME_WAIT";
-        m[7] = "TCP_CLOSE";
-        m[8] = "TCP_CLOSE_WAIT";
-        m[9] = "TCP_LAST_ACK";
-        m[10] = "TCP_LISTEN";
+        m[1] = "TCP_ESTABLISHED"
+        m[2] = "TCP_SYN_SENT"
+        m[3] = "TCP_SYN_RECV"
+        m[4] = "TCP_FIN_WAIT1"
+        m[5] = "TCP_FIN_WAIT2"
+        m[6] = "TCP_TIME_WAIT"
+        m[7] = "TCP_CLOSE"
+        m[8] = "TCP_CLOSE_WAIT"
+        m[9] = "TCP_LAST_ACK"
+        m[10] = "TCP_LISTEN"
 
-        TCP_ESTABLISHED = 1;
-        TCP_SYN_SENT = 2;
-        TCP_SYN_RECV = 3;
-        TCP_FIN_WAIT1 = 4;
-        TCP_FIN_WAIT2 = 5;
-        TCP_TIME_WAIT = 6;
-        TCP_CLOSE = 7;
-        TCP_CLOSE_WAIT = 8;
-        TCP_LAST_ACK = 9;
-        TCP_LISTEN = 10;
+        TCP_ESTABLISHED = 1
+        TCP_SYN_SENT = 2
+        TCP_SYN_RECV = 3
+        TCP_FIN_WAIT1 = 4
+        TCP_FIN_WAIT2 = 5
+        TCP_TIME_WAIT = 6
+        TCP_CLOSE = 7
+        TCP_CLOSE_WAIT = 8
+        TCP_LAST_ACK = 9
+        TCP_LISTEN = 10
     }
 
     # common fields
@@ -172,21 +172,21 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
            birth[skaddr] = time
 
         if (nstate == TCP_SYN_SENT || nstate == TCP_LAST_ACK) {
-           whoami_p[skaddr] = pid; 
-           whoami_c[skaddr] = comm; 
+           whoami_p[skaddr] = pid 
+           whoami_c[skaddr] = comm
         }
 
         if (nstate != TCP_CLOSE) 
            next
 
         if (!skaddr in birth) {
-           delete whoami_p[skaddr];
-           delete whoami_c[skaddr];
+           delete whoami_p[skaddr]
+           delete whoami_c[skaddr]
            next
         }
 
-        delta_us = (time - birth[skaddr]) * 1000000;
-        delete birth[skaddr];
+        delta_us = (time - birth[skaddr]) * 1000000
+        delete birth[skaddr]
         
         laddr = $(8+o); sub(/.*=/, "", laddr)
         lport = $(6+o); sub(/.*=/, "", lport)
@@ -195,9 +195,22 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         rx_b = $(14+o); sub(/.*=/, "", rx_b)
         tx_b = $(15+o); sub(/.*=/, "", tx_b)
 
+        if (opt_timestamp) {
+            if (start_ts == 0)
+                start_ts = time
+            lasted_s = time - start_ts
+            printf "%-12.6f ", lasted_s
+        }
+
         printf "%-8s %-12s %-20s %-6s %-20s %-6s %6d %6d %-5s\n",
-               whoami_p[skaddr], whoami_c[skaddr], laddr, lport, raddr, rport, rx_b / 1024, tx_b / 1024, delta_us / 1000
+               whoami_p[skaddr], whoami_c[skaddr], laddr, lport, raddr, rport, tx_b / 1024, rx_b / 1024, delta_us / 1000
         
+	    if (!opt_duration)
+	        fflush()
+
+        whoami_p[skaddr]
+        whoami_c[skaddr]
+
         next
     }
 
