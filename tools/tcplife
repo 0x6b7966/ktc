@@ -195,6 +195,9 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         rx_b = $(14+o); sub(/.*=/, "", rx_b)
         tx_b = $(15+o); sub(/.*=/, "", tx_b)
 
+        if (opt_time) 
+           printf "%-8s ", strftime("%H:%M:%S", time)
+
         if (opt_timestamp) {
             if (start_ts == 0)
                 start_ts = time
