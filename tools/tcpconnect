@@ -15,7 +15,8 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-start_ts=0; opt_duration=0; duration=; opt_timestamp=0;
+start_ts=0; opt_duration=0; duration=; opt_pid=0; pid=; opt_ports=0; ports=; ftext=
+opt_timestamp=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -23,11 +24,15 @@ function usage {
     USAGE: tcpconnect [-ht]
                        -h       # help message
                        -t       # include timestamp on output
+                       -p       # trace this PID only
+                       -P       # comma-separated list of destination ports to trace.
     eg,
          ./tcpconnect           # trace all TCP connect()s
          ./tcpconnect -t        # include timestamps
+         ./tcpconnect -p 121    # only trace PID 121
+         ./tcpconnect -P 80     # only trace port 80
+         ./tcpconnect -P 80,81  # only trace port 80 and 81
 END
-
    exit
 }
 
@@ -43,6 +48,10 @@ function end {
     cd $tracing
     warn "echo 0 > events/tcp/tcp_v4_connect_entry/enable"
     warn "echo 0 > events/tcp/tcp_v4_connect_return/enable"
+    if (( opt_pid || opt_ports )); then
+        warn "echo 0 > events/tcp/tcp_v4_connect_entry/filter"
+        warn "echo 0 > events/tcp/tcp_v4_connect_return/filter"
+    fi
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
@@ -61,10 +70,12 @@ function edie {
 }
 
 ### process options
-while getopts ht opt
+while getopts htp:P: opt
 do
     case $opt in
     t) opt_timestamp=1 ;;
+    p) opt_pid=1; pid=$OPTARG ;;
+    p) opt_ports=1; ports=$OPTARG ;;
     h|?) usage ;;
     esac
 done
@@ -76,10 +87,12 @@ if (( $# )); then
 fi
 
 ### option logic
+(( opt_pid )) && ftext=" issued by PID $pid"
+(( opt_ports )) && ftext="$ftext issued by Ports $pid"
 if (( opt_duration )); then
-    echo "Tracing tcpconnect for $duration seconds (buffered)..."
+    echo "Tracing tcpconnect$ftext for $duration seconds (buffered)..."
 else
-    echo "Tracing tcpconnect ... Hit Ctrl-C to end"
+    echo "Tracing tcpconnect$ftext. Hit Ctrl-C to end"
 fi
 
 # select awk
@@ -98,20 +111,40 @@ echo $$ > $flock || die "ERROR: unable to write $flock."
 ### setup and begin tracing
 echo nop > current_tracer
 warn "echo $bufsize_kb > buffer_size_kb"
+filter=
+if (( opt_ports )); then
+    OLD_IFS="$IFS"
+    IFS=","
+    ports_arr=($ports)
+    IFS="$OLD_IFS"
+    for port in ${ports_arr[@]}
+    do
+        [[ "$filter" != "" ]] && filter="$filter || "
+        filter="${filter}dport=$port"
+    done
+fi
+if (( opt_pid )); then
+    [[ "$filter" != "" ]] && filter="($filter) && "
+    filter="${filter}common_pid=$pid"
+fi
+if (( opt_ports || opt_pid )); then
+    if ! echo "$filter" > events/tcp/tcp_v4_connect_entry/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+    if ! echo "$filter" > events/tcp/tcp_v4_connect_return/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+fi
 if ! echo 1 > events/tcp/tcp_v4_connect_entry/enable; then
     edie "ERROR: enabling . Exiting."
-fi 
+fi
 if ! echo 1 > events/tcp/tcp_v4_connect_return/enable; then
     edie "ERROR: enabling . Exiting."
 fi
 
 (( opt_timestamp )) && printf "%-12s " "TIME(s)"
-printf "%-8s " "PID"
-printf "%-12s " "COMM"
-printf "%-20s " "SADDR"
-printf "%-6s " "SPORT"
-printf "%-20s " "DADDR"
-printf "%-6s\n" "DPORT"
+printf "%-8s %-12s %-20s %-6s %-20s %-6s\n" \
+    "PID" "COMM" "SADDR" "SPORT" "DADDR" "DPORT"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -155,11 +188,11 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
         if (pid in conns) {
             retval = $(12+o); sub(/.*=/, "", retval)
 
-	    if (retval != 0) {
-		delete conns[pid]
-		print "WARNING: " $0 > "/dev/stderr"
-		next
-	    }
+            if (retval != 0) {
+                delete conns[pid]
+                print "WARNING: " $0 > "/dev/stderr"
+                next
+            }
 
             eskaddr = conns[pid]
             rskaddr = $(5+o); sub(/.*=/, "", rskaddr)
@@ -171,11 +204,11 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
                 dport = $(7+o); sub(/.*=/, "", dport)
 
                 if (opt_timestamp) {
-	            if (start_ts == 0)
-	                start_ts = time 
+                    if (start_ts == 0)
+                        start_ts = time
                     lasted_s = time - start_ts
                     printf "%-12.6f ", lasted_s
-	        }
+                }
 
                 printf "%-8s %-12s ", pid, comm
                 printf "%-20s ", saddr
@@ -183,8 +216,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
                 printf "%-20s ", daddr
                 printf "%-6s\n", dport
             } else {
-		print "WARNING: " $0 > "/dev/stderr"
-	    }
+                print "WARNING: " $0 > "/dev/stderr"
+            }
         }
 
         next
