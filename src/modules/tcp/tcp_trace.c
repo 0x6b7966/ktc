@@ -135,6 +135,19 @@ static struct jprobe tcp_set_state_jp = {
     .entry = jtcp_set_state,
 };
 
+static void jtcp_close(struct sock *sk, long timeout)
+{
+    trace_tcp_close(sk, timeout);
+    jprobe_return();
+}
+
+static struct jprobe tcp_close_jp = {
+    .kp = {
+        .symbol_name = "tcp_close"
+    },
+    .entry = jtcp_close,
+};
+
 static void jtcp_destroy_sock(struct sock *sk)
 {
     trace_tcp_destroy_sock(sk);
@@ -184,6 +197,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_sendmsg_jp,
     &tcp_cleanup_rbuf_jp,
     &tcp_set_state_jp,
+    &tcp_close_jp,
     &tcp_destroy_sock_jp,
     &tcp_rcv_space_adjust_jp,
     &tcp_receive_reset_jp,
