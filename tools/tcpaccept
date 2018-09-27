@@ -13,17 +13,19 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-start_ts=0; opt_duration=0; duration=; opt_timestamp=0;
+start_ts=0; opt_duration=0; duration=; opt_pid=0; pid=; ftext= opt_timestamp=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
-    USAGE: tcpaccept [-ht]
+    USAGE: tcpaccept [-h] [-t] [-p PID]
                       -h       # help message
                       -t       # include timestamp on output
+                      -p PID   # trace this PID only
     eg,
          ./tcpaccept           # trace all TCP connect()s
-         ./tcpaccpet  -t       # include timestamps
+         ./tcpaccpet -t        # include timestamps
+         ./tcpaccept -p 121    # only trace PID 121
 END
    exit
 }
@@ -39,6 +41,9 @@ function end {
     echo "Ending tracing..." 2>/dev/null
     cd $tracing
     warn "echo 0 > events/tcp/inet_csk_accept_return/enable"
+    if (( opt_pid )); then
+        warn "echo 0 > events/tcp/inet_csk_accept_return/filter"
+    fi
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
@@ -57,10 +62,11 @@ function edie {
 }
 
 ### process options
-while getopts ht opt
+while getopts htp: opt
 do
     case $opt in
     t) opt_timestamp=1 ;;
+    p) opt_pid=1; pid=$OPTARG ;;
     h|?) usage ;;
     esac
 done
@@ -72,10 +78,11 @@ if (( $# )); then
 fi
 
 ### option logic
+(( opt_pid )) && ftext=" issued by PID $pid"
 if (( opt_duration )); then
-    echo "Tracing tcpaccept for $duration seconds (buffered)..."
+    echo "Tracing tcpaccept$ftext for $duration seconds (buffered)..."
 else
-    echo "Tracing tcpaccept ... Hit Ctrl-C to end"
+    echo "Tracing tcpaccept$ftext. Hit Ctrl-C to end"
 fi
 
 # select awk
@@ -94,10 +101,14 @@ echo $$ > $flock || die "ERROR: unable to write $flock."
 ### setup and begin tracing
 echo nop > current_tracer
 warn "echo $bufsize_kb > buffer_size_kb"
+if (( opt_pid )); then
+    if ! echo "common_pid == $pid" > events/tcp/inet_csk_accept_return/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+fi
 if ! echo 1 > events/tcp/inet_csk_accept_return/enable; then
     edie "ERROR: enabling . Exiting."
 fi
-
 (( opt_timestamp )) && printf "%-12s " "TIME(s)"
 printf "%-8s " "PID"
 printf "%-12s " "COMM"
@@ -144,7 +155,7 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
         rport = $(6+o); sub(/.*=/, "", rport)
 
         if (opt_timestamp) {
-            if (start_ts == 0) 
+            if (start_ts == 0)
                 start_ts = time
             lasted_s = time - start_ts
             printf "%-12.6f ", lasted_s
@@ -156,8 +167,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
         printf "%-20s ", saddr
         printf "%-6s\n", sport
 
-	if (!opt_duration)
-	    fflush()
+    if (!opt_duration)
+        fflush()
 
         next
     }
