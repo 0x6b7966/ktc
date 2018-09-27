@@ -353,7 +353,7 @@ TRACE_EVENT(tcp_sendmsg,
         __entry->size = size;
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m size=%llu",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c size=%llu",
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,
@@ -374,7 +374,7 @@ TRACE_EVENT(tcp_cleanup_rbuf,
         __array(__u8, daddr, 4)
         __array(__u8, saddr_v6, 16)
         __array(__u8, daddr_v6, 16)
-        __field(__u64, size)
+        __field(__u64, copied)
     ),
 
     TP_fast_assign(
@@ -395,14 +395,14 @@ TRACE_EVENT(tcp_cleanup_rbuf,
         TP_STORE_ADDRS(__entry, inet->inet_saddr, inet->inet_daddr,
                    sk->sk_v6_rcv_saddr, sk->sk_v6_daddr);
 
-        __entry->size = copied;
+        __entry->copied = copied;
     ),
 
-    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c,m size=%llu",
+    TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c copied=%llu",
           __entry->sport, __entry->dport,
           __entry->saddr, __entry->daddr,
           __entry->saddr_v6, __entry->daddr_v6,
-          __entry->size)
+          __entry->copied)
 );
 
 TRACE_EVENT(tcp_set_state,
