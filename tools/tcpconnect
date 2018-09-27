@@ -215,6 +215,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
             } else {
                 print "WARNING: " $0 > "/dev/stderr"
             }
+
+            delete conns[pid]
         }
 
         next
