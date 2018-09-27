@@ -42,9 +42,9 @@ usage: tcpaccept [-h] [-t] [-p PID]
 Trace TCP accepts
 
 optional arguments:
-  -h, --help         show this help message and exit
-  -t, --timestamp    include timestamp on output
-  -p PID, --pid PID  trace this PID only
+  -h    show this help message and exit
+  -t    include timestamp on output
+  -p    trace this PID only
 
 examples:
     ./tcpaccept           # trace all TCP accept()s
