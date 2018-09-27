@@ -75,7 +75,7 @@ do
     case $opt in
     t) opt_timestamp=1 ;;
     p) opt_pid=1; pid=$OPTARG ;;
-    p) opt_ports=1; ports=$OPTARG ;;
+    P) opt_ports=1; ports=$OPTARG ;;
     h|?) usage ;;
     esac
 done
@@ -88,7 +88,7 @@ fi
 
 ### option logic
 (( opt_pid )) && ftext=" issued by PID $pid"
-(( opt_ports )) && ftext="$ftext issued by Ports $pid"
+(( opt_ports )) && ftext="$ftext issued by Ports $ports"
 if (( opt_duration )); then
     echo "Tracing tcpconnect$ftext for $duration seconds (buffered)..."
 else
@@ -120,17 +120,14 @@ if (( opt_ports )); then
     for port in ${ports_arr[@]}
     do
         [[ "$filter" != "" ]] && filter="$filter || "
-        filter="${filter}dport=$port"
+        filter="${filter}dport==$port"
     done
 fi
 if (( opt_pid )); then
     [[ "$filter" != "" ]] && filter="($filter) && "
-    filter="${filter}common_pid=$pid"
+    filter="${filter}common_pid==$pid"
 fi
 if (( opt_ports || opt_pid )); then
-    if ! echo "$filter" > events/tcp/tcp_v4_connect_entry/filter; then
-        edie "ERROR: setting -d or -t filter. Exiting."
-    fi
     if ! echo "$filter" > events/tcp/tcp_v4_connect_return/filter; then
         edie "ERROR: setting -d or -t filter. Exiting."
     fi
