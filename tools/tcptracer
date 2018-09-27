@@ -44,8 +44,8 @@ function end {
     warn "echo 0 > events/tcp/tcp_v4_connect_entry/enable"
     warn "echo 0 > events/tcp/tcp_v4_connect_return/enable"
     warn "echo 0 > events/tcp/tcp_set_state/enable"
-    warn "echo 0 > events/syscalls/tcp_close/enable"
-    warn "echo 0 > events/syscalls/inet_csk_accept_return/enable"
+    warn "echo 0 > events/tcp/tcp_close/enable"
+    warn "echo 0 > events/tcp/inet_csk_accept_return/enable"
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
