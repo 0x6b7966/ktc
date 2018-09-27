@@ -210,11 +210,11 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
                     printf "%-12.6f ", lasted_s
                 }
 
-                printf "%-8s %-12s ", pid, comm
-                printf "%-20s ", saddr
-                printf "%-6s ", sport
-                printf "%-20s ", daddr
-                printf "%-6s\n", dport
+                printf "%-8s %-12s %-20s %-6s %-20s %-6s\n",
+                       pid, comm, saddr, sport, daddr, dport
+
+                if (!opt_duration)
+                    fflush()
             } else {
                 print "WARNING: " $0 > "/dev/stderr"
             }

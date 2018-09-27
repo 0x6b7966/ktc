@@ -110,12 +110,8 @@ if ! echo 1 > events/tcp/inet_csk_accept_return/enable; then
     edie "ERROR: enabling . Exiting."
 fi
 (( opt_timestamp )) && printf "%-12s " "TIME(s)"
-printf "%-8s " "PID"
-printf "%-12s " "COMM"
-printf "%-20s " "RADDR"
-printf "%-6s " "RPORT"
-printf "%-20s " "SADDR"
-printf "%-6s\n" "SPORT"
+printf "%-8s %-12s %-20s %-6s %-20s %-6s\n" \
+    "PID" "COMM" "RADDR" "RPORT" "SADDR" "SPORT"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -161,11 +157,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp '
             printf "%-12.6f ", lasted_s
         }
 
-        printf "%-8s %-12s ", pid, comm
-        printf "%-20s ", raddr
-        printf "%-6s ", rport
-        printf "%-20s ", saddr
-        printf "%-6s\n", sport
+        printf "%-8s %-12s %-20s %-6s %-20s %-6s\n",
+               pid, comm, raddr, rport, saddr, sport
 
     if (!opt_duration)
         fflush()
