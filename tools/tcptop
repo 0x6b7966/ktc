@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+#
+# tcptop    Summarize TCP send/recv throughput by host.
+#
+# USAGE: tcplife [-h] [-C] [-S] [-p PID] [interval [count]]
+#
+# This uses the tcp:tcp_set_state tracepoint.
+#
+# While throughput counters are emitted, they are fetched in a low-overhead
+# manner: reading members of the tcp_info struct on TCP close. ie, we do not
+# trace send/receive.
+#
+# 25-Sep-2018   Ethercflow   Created this.
+
+### default variables
+tracing=/sys/kernel/debug/tracing
+flock=/var/tmp/.ftrace-lock
+bufsize_kb=4096
+opt_duration=0; duration=; 
+opt_clear=0; clear=0;
+opt_interval=0; interval=1; opt_count=0; count=-1;
+trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
+
+function usage {
+    cat <<-END >&2
+    USAGE: tcptop [-hciC]
+                   -h          # help message
+                   -c          # number of outputs
+                   -i          # output interval, in seconds (default 1)
+                   -C          # don't clear the screen
+    eg,
+         ./tcptop              # trace TCP send/recv by host
+END
+    exit
+}
+
+function warn {
+    if ! eval "$@"; then
+        echo >&2 "WARNING: command failed \"$@\""
+    fi
+}
+
+function end {
+    echo 2>/dev/null
+    echo "Ending tracing..." 2>/dev/null
+    cd $tracing
+    warn "echo 0 > events/tcp/tcp_sendmsg/enable"
+    warn "echo 0 > events/tcp/tcp_cleanup_rbuf/enable"
+    warn "echo > trace"
+    (( wroteflock )) && warn "rm $flock"
+}
+
+function die {
+    echo >&2 "$@"
+    exit 1
+}
+
+function edie {
+    # die with a quiet end()
+    echo >&2 "$@"
+    exec >/dev/null 2>&1
+    end
+    exit 1
+}
+
+### process options
+while getopts hc:i:C opt
+do
+    case $opt in
+    c) opt_count=1; count=$OPTARG ;;
+    i) opt_interval=1; interval=$OPTARG ;;
+    C) opt_clear=1; clear=1 ;;
+    h|?) usage ;;
+    esac
+done
+shift $(( $OPTIND - 1 ))
+if (( $# )); then
+    opt_duration=1
+    duration=$1
+    shift
+fi
+
+### option logic
+if (( opt_duration )); then
+    echo "Tracing tcptop for $duration seconds (buffered)..."
+else
+    echo "Tracing tcptop ... Hit Ctrl-C to end"
+fi
+
+# select awk
+(( opt_duration )) && use=mawk || use=gawk	# workaround for mawk fflush()
+[[ -x /usr/bin/$use ]] && awk=$use || awk=awk
+wroteflock=1
+
+### check permissions
+cd $tracing || die "ERROR: accessing tracing. Root user? Kernel has FTRACE?
+    debugfs mounted? (mount -t debugfs debugfs /sys/kernel/debug)"
+
+### ftrace lock
+[[ -e $flock ]] && die "ERROR: ftrace may be in use by PID $(cat $flock) $flock"
+echo $$ > $flock || die "ERROR: unable to write $flock."
+
+### setup and begin tracing
+echo nop > current_tracer
+warn "echo $bufsize_kb > buffer_size_kb"
+if ! echo 1 > events/tcp/tcp_sendmsg/enable; then
+    edie "ERROR: enabling . Exiting."
+fi
+if ! echo 1 > events/tcp/tcp_cleanup_rbuf/enable; then
+    edie "ERROR: enabling . Exiting."
+fi
+(( opt_time )) && printf "%-8s " "TIME"
+(( opt_timestamp )) && printf "%-12s " "TIME(s)"
+printf "%-8s %-12s %-20s %-6s %-20s %-6s %6s %6s %-5s\n" \
+	"PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
+
+#
+# Determine output format. It may be one of the following (newest first):
+#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
+#           TASK-PID    CPU#    TIMESTAMP  FUNCTION
+# To differentiate between them, the number of header fields is counted,
+# and an offset set, to skip the extra column when needed.
+#
+offset=$($awk 'BEGIN { o = 0; }
+    $1 == "#" && $2 ~ /TASK/ && NF == 6 { o = 1; }
+    $2 ~ /TASK/ { print o; exit }' trace)
+
+### print trace buffer
+warn "echo > trace"
+( if (( opt_duration )); then
+    # wait then dump buffer
+    sleep $duration
+    cat trace
+else
+    # print buffer live
+    cat trace_pipe
+fi ) | $awk -v o=$offset -v interval=$interval -v count=$count '
+    BEGIN  {
+        prev = 0
+        now = 0
+    }
+
+    # common fields
+    $1 != "#" {
+        comm = pid = $1
+        sub(/-[0-9][0-9]*/, "", comm)
+        sub(/.*-/, "", pid)
+        time = $(3+o); sub(":", "", time)
+        
+        if (prev = 0) 
+           prev = time 
+        now = time
+
+        if (now - prev >= interval)  {
+           print now, prev
+           prev = now
+        }
+
+        next
+    }
+
+    # tcp_sendmsg 
+    $1 != "#" && $0 ~ /tcp_sedmsg/ {
+        saddr = $(7+o); sub(/.*=/, "", saddr)
+        sport = $(5+o); sub(/.*=/, "", sport)
+        daddr = $(6+o); sub(/.*=/, "", daddr)
+        dport = $(8+o); sub(/.*=/, "", dport)
+        size = $(11+o); sub(/.*=/, "", size)
+
+        send_bytes[pid, saddr, sport, daddr, dport] += size 
+
+        next
+    }
+
+    # tcp_cleanup_rbuf
+    $1 != "#" && $0 ~ /tcp_cleanup_rbuf/ {
+        copied = $(11+o); sub(/.*=/, "", copied)
+
+        if (copied <= 0) 
+           next
+        
+        saddr = $(7+o); sub(/.*=/, "", saddr)
+        sport = $(5+o); sub(/.*=/, "", sport)
+        daddr = $(6+o); sub(/.*=/, "", daddr)
+        dport = $(8+o); sub(/.*=/, "", dport)
+
+        recv_bytes[pid, saddr, sport, daddr, dport] += copied 
+
+        next
+    }
+
+    $0 ~ /LOST.*EVENTS/ { print "WARNING: " $0 > "/dev/stderr" }
+'
+
+### end tracing
+end
