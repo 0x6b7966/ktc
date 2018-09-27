@@ -266,6 +266,13 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         daddr = $(9+o); sub(/.*=/, "", daddr)
         dport = $(7+o); sub(/.*=/, "", dport)
 
+        if (opt_timestamp) {
+            if (start_ts == 0)
+                start_ts = time
+            lasted_s = time - start_ts
+            printf "%-12.6f ", lasted_s
+        }
+
         printf "%-s %-8s %-12s %-20s %-20s %-6s %-6s\n",
             "X", pid, comm, saddr, daddr, sport, dport
 
@@ -296,7 +303,6 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
             fflush()
 
         next
-
     }
 
     $0 ~ /LOST.*EVENTS/ { print "WARNING: " $0 > "/dev/stderr" }
