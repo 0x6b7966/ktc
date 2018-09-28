@@ -3,7 +3,7 @@
 # tcpretrans    Trace or count TCP retransmits and TLPs.
 #               For Linux, uses BCC, eBPF. Embedded C.
 #
-# USAGE: tcpretrans [-c] [-h] [-l]
+# USAGE: tcpretrans [-c] [-h] [-l] [duration]
 #
 # This uses dynamic tracing of kernel functions, and will need to be updated
 # to match kernel changes.
@@ -87,7 +87,7 @@ fi
 if (( opt_duration )); then
     echo "Tracing retransmits for $duration seconds (buffered)..."
 else
-    echo "Tracing retransmits ... Hit Ctrl-C to end"
+    echo "Tracing retransmits. Hit Ctrl-C to end"
 fi
 
 # select awk
@@ -155,16 +155,16 @@ else
     cat trace_pipe
 fi ) | $awk -v o=$offset -v count=$opt_count -v stacks=$opt_stacks '
     BEGIN {
-        m[1]="TCP_ESTABLISHED";
-        m[2]="TCP_SYN_SENT";
-        m[3]="TCP_SYN_RECV";
-        m[4]="TCP_FIN_WAIT1";
-        m[5]="TCP_FIN_WAIT2";
-        m[6]="TCP_TIME_WAIT";
-        m[7]="TCP_CLOSE";
-        m[8]="TCP_CLOSE_WAIT";
-        m[9]="TCP_LAST_ACK";
-        m[10]="TCP_LISTEN";
+        m[1]="ESTABLISHED";
+        m[2]="SYN_SENT";
+        m[3]="SYN_RECV";
+        m[4]="FIN_WAIT1";
+        m[5]="FIN_WAIT2";
+        m[6]="TIME_WAIT";
+        m[7]="CLOSE";
+        m[8]="CLOSE_WAIT";
+        m[9]="LAST_ACK";
+        m[10]="LISTEN";
 
         delete c[0]
     }
@@ -211,10 +211,7 @@ fi ) | $awk -v o=$offset -v count=$opt_count -v stacks=$opt_stacks '
     END {
         for (k in c) {
            split(k, a, "-")
-           printf "%-25s", a[1]
-	   printf "%-4s", "<->"
-           printf "%-25s", a[2]
-           printf "%-6s\n", c[k]
+           printf "%-25s %-4s %-25s %-6s\n", a[1], "<->", a[2], c[k]
         }
     }
 '
