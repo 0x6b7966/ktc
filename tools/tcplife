@@ -16,7 +16,7 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-start_ts=0; opt_duration=0; duration=; opt_time=0; opt_timestamp=0;
+start_ts=0; opt_duration=0; duration=; opt_time=0; opt_timestamp=0; opt_pid=0; pid=; ftext=
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -44,6 +44,9 @@ function end {
     echo "Ending tracing..." 2>/dev/null
     cd $tracing
     warn "echo 0 > events/tcp/tcp_set_state/enable"
+    if (( opt_pid )); then
+        warn "echo 0 > events/tcp/tcp_set_state/filter"
+    fi
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
@@ -62,11 +65,12 @@ function edie {
 }
 
 ### process options
-while getopts hTt opt
+while getopts hTtp: opt
 do
     case $opt in
     T) opt_time=1 ;;
     t) opt_timestamp=1 ;;
+    p) opt_pid=1; pid=$OPTARG ;;
     h|?) usage ;;
     esac
 done
@@ -78,10 +82,11 @@ if (( $# )); then
 fi
 
 ### option logic
+(( opt_pid )) && ftext=" issued by PID $pid"
 if (( opt_duration )); then
-    echo "Tracing tcplife for $duration seconds (buffered)..."
+    echo "Tracing tcplife$ftext for $duration seconds (buffered)..."
 else
-    echo "Tracing tcplife ... Hit Ctrl-C to end"
+    echo "Tracing tcplife$ftext. Hit Ctrl-C to end"
 fi
 
 # select awk
@@ -100,6 +105,11 @@ echo $$ > $flock || die "ERROR: unable to write $flock."
 ### setup and begin tracing
 echo nop > current_tracer
 warn "echo $bufsize_kb > buffer_size_kb"
+if (( opt_pid )); then
+    if ! echo "common_pid==$pid" > events/tcp/tcp_set_state/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+fi
 if ! echo 1 > events/tcp/tcp_set_state/enable; then
     edie "ERROR: enabling . Exiting."
 fi
@@ -107,7 +117,7 @@ fi
 (( opt_time )) && printf "%-8s " "TIME"
 (( opt_timestamp )) && printf "%-12s " "TIME(s)"
 printf "%-8s %-12s %-20s %-6s %-20s %-6s %6s %6s %-5s\n" \
-	"PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
+    "PID" "COMM" "LADDR" "LPORT" "RADDR" "RPORT" "TX_KB" "RX_KB" "MS"
 
 #
 # Determine output format. It may be one of the following (newest first):
@@ -131,17 +141,6 @@ else
     cat trace_pipe
 fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_timestamp=$opt_timestamp '
     BEGIN {
-        m[1] = "TCP_ESTABLISHED"
-        m[2] = "TCP_SYN_SENT"
-        m[3] = "TCP_SYN_RECV"
-        m[4] = "TCP_FIN_WAIT1"
-        m[5] = "TCP_FIN_WAIT2"
-        m[6] = "TCP_TIME_WAIT"
-        m[7] = "TCP_CLOSE"
-        m[8] = "TCP_CLOSE_WAIT"
-        m[9] = "TCP_LAST_ACK"
-        m[10] = "TCP_LISTEN"
-
         TCP_ESTABLISHED = 1
         TCP_SYN_SENT = 2
         TCP_SYN_RECV = 3
@@ -167,15 +166,15 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         skaddr = $(5+o); sub(/.*=/, "", skaddr)
         nstate = $(13+o); sub(/.*=/, "", nstate)
 
-        if (nstate < TCP_FIN_WAIT1) 
+        if (nstate < TCP_FIN_WAIT1)
             birth[skaddr] = time
 
         if (nstate == TCP_SYN_SENT || nstate == TCP_LAST_ACK) {
-            whoami_p[skaddr] = pid 
+            whoami_p[skaddr] = pid
             whoami_c[skaddr] = comm
         }
 
-        if (nstate != TCP_CLOSE) 
+        if (nstate != TCP_CLOSE)
             next
 
         if (!(skaddr in birth)) {
@@ -186,7 +185,7 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
 
         delta_us = (time - birth[skaddr]) * 1000000
         delete birth[skaddr]
-        
+
         laddr = $(8+o); sub(/.*=/, "", laddr)
         lport = $(6+o); sub(/.*=/, "", lport)
         raddr = $(9+o); sub(/.*=/, "", raddr)
@@ -194,7 +193,7 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
         rx_b = $(14+o); sub(/.*=/, "", rx_b)
         tx_b = $(15+o); sub(/.*=/, "", tx_b)
 
-        if (opt_time) 
+        if (opt_time)
             printf "%-8s ", strftime("%H:%M:%S", time)
 
         if (opt_timestamp) {
@@ -210,9 +209,9 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
            printf "%-8s %-12s ", pid, comm
         printf "%-20s %-6s %-20s %-6s %6d %6d %-5s\n",
                laddr, lport, raddr, rport, tx_b / 1024, rx_b / 1024, delta_us / 1000
-        
-	if (!opt_duration)
-	    fflush()
+
+        if (!opt_duration)
+            fflush()
 
         if (skaddr in whoami_p)
             delete whoami_p[skaddr]
