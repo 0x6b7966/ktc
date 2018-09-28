@@ -12,7 +12,8 @@
 tracing=/sys/kernel/debug/tracing
 flock=/var/tmp/.ftrace-lock
 bufsize_kb=4096
-start_ts=0; opt_duration=0; duration=; opt_timestamp=0;
+start_ts=0; opt_duration=0; duration=; opt_pid=0; pid=; opt_min_ms=0; min_ms=0; ftext=
+opt_timestamp=0;
 trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
@@ -20,11 +21,14 @@ function usage {
     USAGE: tcpconnlat [-ht]
                        -h       # help message
                        -t       # include timestamp on output
+                       -p       # trace this PID only
+                       -m       # minimum duration to trace, in ms (default 0)
     eg,
          ./tcpconnlat           # trace all TCP connect()s
          ./tcpconnlat -t        # include timestamps
+         ./tcpconnlat -p 121    # only trace PID 121
+         ./tcpconnlat 1         # only show connects longer than 1 ms
 END
-
    exit
 }
 
@@ -58,10 +62,12 @@ function edie {
 }
 
 ### process options
-while getopts ht opt
+while getopts htp:m: opt
 do
     case $opt in
     t) opt_timestamp=1 ;;
+    p) opt_pid=1; pid=$OPTARG ;;
+    m) opt_min_ms=1; min_ms=$OPTARG ;;
     h|?) usage ;;
     esac
 done
@@ -71,8 +77,9 @@ if (( $# )); then
     duration=$1
     shift
 fi
-
 ### option logic
+(( opt_pid )) && ftext=" issued by PID $pid"
+(( opt_min )) && ftext="$ftext only show connects longer than $min_ms"
 if (( opt_duration )); then
     echo "Tracing tcpconnect for $duration seconds (buffered)..."
 else
@@ -95,6 +102,14 @@ echo $$ > $flock || die "ERROR: unable to write $flock."
 ### setup and begin tracing
 echo nop > current_tracer
 warn "echo $bufsize_kb > buffer_size_kb"
+if (( opt_pid )); then
+    if ! echo "common_pid==$pid" > events/tcp/tcp_v4_connect_entry/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+    if ! echo "common_pid==$pid" > events/tcp/tcp_rcv_state_process/filter; then
+        edie "ERROR: setting -d or -t filter. Exiting."
+    fi
+fi
 if ! echo 1 > events/tcp/tcp_v4_connect_entry/enable; then
     edie "ERROR: enabling . Exiting."
 fi
@@ -126,7 +141,8 @@ warn "echo > trace"
 else
     # print buffer live
     cat trace_pipe
-fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp -v opt_duration=$opt_duration '
+  fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp \
+      -v min_ms=$min_ms -v opt_duration=$opt_duration '
     # common fields
     $1 != "#" {
         # task name can contain dashes
@@ -140,8 +156,8 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp -
     $1 != "#" && $0 ~ /tcp_v4_connect_entry/ {
         skaddr = $(5+o); sub(/.*=/, "", skaddr)
         starts[skaddr] = time
-	comms[skaddr] = comm
-	pids[skaddr] = pid
+        comms[skaddr] = comm
+        pids[skaddr] = pid
         next
     }
 
@@ -151,6 +167,9 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp -
 
         if (skaddr in starts) {
             delta_ms = (time - starts[skaddr]) * 1000
+            if (delta_ms < min_ms)
+                next
+
             saddr = $(8+o); sub(/.*=/, "", saddr)
             sport = $(6+o); sub(/.*=/, "", sport)
             daddr = $(9+o); sub(/.*=/, "", daddr)
@@ -164,14 +183,14 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_timestamp=$opt_timestamp -
             }
 
             printf "%-8s %-12s %-20s %-6s %-20s %-6s %s\n",
-	    	pids[skaddr], comms[skaddr], saddr, sport, daddr, dport, delta_ms
+                   pids[skaddr], comms[skaddr], saddr, sport, daddr, dport, delta_ms
 
-	    if (!opt_duration)
-	        fflush()
+            if (!opt_duration)
+                fflush()
 
             delete starts[skaddr]
-  	    delete comms[skaddr]
-	    delete pids[skaddr]
+            delete comms[skaddr]
+            delete pids[skaddr]
         } else {
             print "WARNING: " $0 > "/dev/stderr"
         }
