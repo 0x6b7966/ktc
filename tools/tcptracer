@@ -81,9 +81,9 @@ fi
 
 ### option logic
 if (( opt_duration )); then
-    echo "Tracing tcptrace for $duration seconds (buffered)..."
+    echo "Tracing TCP established connections for $duration seconds (buffered)..."
 else
-    echo "Tracing tcptrace ... Hit Ctrl-C to end"
+    echo "Tracing TCP established connections. Hit Ctrl-C to end"
 fi
 
 # select awk
