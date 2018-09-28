@@ -27,7 +27,7 @@ function usage {
          ./tcpconnlat           # trace all TCP connect()s
          ./tcpconnlat -t        # include timestamps
          ./tcpconnlat -p 121    # only trace PID 121
-         ./tcpconnlat 1         # only show connects longer than 1 ms
+         ./tcpconnlat -m 1      # only show connects longer than 1 ms
 END
    exit
 }
@@ -44,6 +44,10 @@ function end {
     cd $tracing
     warn "echo 0 > events/tcp/tcp_v4_connect_entry/enable"
     warn "echo 0 > events/tcp/tcp_rcv_state_process/enable"
+    if (( opt_pid )); then
+        warn "echo 0 > events/tcp/tcp_v4_connect_entry/filter"
+        warn "echo 0 > events/tcp/tcp_rcv_state_process/filter"
+    fi
     warn "echo > trace"
     (( wroteflock )) && warn "rm $flock"
 }
@@ -81,9 +85,9 @@ fi
 (( opt_pid )) && ftext=" issued by PID $pid"
 (( opt_min )) && ftext="$ftext only show connects longer than $min_ms"
 if (( opt_duration )); then
-    echo "Tracing tcpconnect for $duration seconds (buffered)..."
+    echo "Tracing tcpconnlat$ftext for $duration seconds (buffered)..."
 else
-    echo "Tracing tcpconnect ... Hit Ctrl-C to end"
+    echo "Tracing tcpconlat$ftext ... Hit Ctrl-C to end"
 fi
 
 # select awk
