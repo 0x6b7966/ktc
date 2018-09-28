@@ -17,7 +17,7 @@ trap ':' INT QUIT TERM PIPE HUP	# sends execution to end tracing section
 
 function usage {
     cat <<-END >&2
-    USAGE: tcpstates [-hTt] 
+    USAGE: tcpstates [-hTt]
                       -h          # help message
                       -T          # include time column on output (HH:MM:SS)
                       -t          # include timestamp on output (seconds)
@@ -136,16 +136,16 @@ else
     cat trace_pipe
 fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_timestamp=$opt_timestamp '
     BEGIN {
-        m[1]="TCP_ESTABLISHED";
-        m[2]="TCP_SYN_SENT";
-        m[3]="TCP_SYN_RECV";
-        m[4]="TCP_FIN_WAIT1";
-        m[5]="TCP_FIN_WAIT2";
-        m[6]="TCP_TIME_WAIT";
-        m[7]="TCP_CLOSE";
-        m[8]="TCP_CLOSE_WAIT";
-        m[9]="TCP_LAST_ACK";
-        m[10]="TCP_LISTEN";
+        m[1]="ESTABLISHED";
+        m[2]="SYN_SENT";
+        m[3]="SYN_RECV";
+        m[4]="FIN_WAIT1";
+        m[5]="FIN_WAIT2";
+        m[6]="TIME_WAIT";
+        m[7]="CLOSE";
+        m[8]="CLOSE_WAIT";
+        m[9]="LAST_ACK";
+        m[10]="LISTEN";
     }
 
     $1 != "#" {
@@ -164,19 +164,19 @@ fi ) | $awk -v o=$offset -v start_ts=$start_ts -v opt_time=$opt_time -v opt_time
 
         span_ms = 0
         tsp = last[sk]
-        if (tsp > 0) 
+        if (tsp > 0)
            span_ms = (time - tsp) * 1000
         last[sk] = time
-        
-        if (opt_time) 
+
+        if (opt_time)
            printf "%-8s ", strftime("%H:%M:%S", time)
 
         if (opt_timestamp) {
-	    if (start_ts == 0)
-	          start_ts = time 
+            if (start_ts == 0)
+                start_ts = time
             lasted_s = time - start_ts
             printf "%-8.6f ", lasted_s
-	}
+        }
 
         printf "%-20s ", skaddr
         printf "%-8s %-12s ", pid, comm
