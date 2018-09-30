@@ -608,6 +608,61 @@ TRACE_EVENT(tcp_probe,
           __entry->srtt, __entry->rcv_wnd)
 );
 
+TRACE_EVENT(tcp_drop,
+
+    TP_PROTO(struct sock *sk, struct sk_buff *skb),
+
+    TP_ARGS(sk, skb),
+
+    TP_STRUCT__entry(
+        /* sockaddr_in6 is always bigger than sockaddr_in */
+        __array(__u8, saddr, sizeof(struct sockaddr_in6))
+        __array(__u8, daddr, sizeof(struct sockaddr_in6))
+        __field(__u16, sport)
+        __field(__u16, dport)
+        __field(__u32, mark)
+        __field(__u16, data_len)
+        __field(__u32, snd_nxt)
+        __field(__u32, snd_una)
+        __field(__u32, snd_cwnd)
+        __field(__u32, ssthresh)
+        __field(__u32, snd_wnd)
+        __field(__u32, srtt)
+        __field(__u32, rcv_wnd)
+    ),
+
+    TP_fast_assign(
+        const struct tcphdr *th = (const struct tcphdr *)skb->data;
+        const struct inet_sock *inet = inet_sk(sk);
+        const struct tcp_sock *tp = tcp_sk(sk);
+
+        memset(__entry->saddr, 0, sizeof(struct sockaddr_in6));
+        memset(__entry->daddr, 0, sizeof(struct sockaddr_in6));
+
+        TP_STORE_ADDR_PORTS(__entry, inet, sk);
+
+        /* For filtering use */
+        __entry->sport = ntohs(inet->inet_sport);
+        __entry->dport = ntohs(inet->inet_dport);
+        __entry->mark = skb->mark;
+
+        __entry->data_len = skb->len - __tcp_hdrlen(th);
+        __entry->snd_nxt = tp->snd_nxt;
+        __entry->snd_una = tp->snd_una;
+        __entry->snd_cwnd = tp->snd_cwnd;
+        __entry->snd_wnd = tp->snd_wnd;
+        __entry->rcv_wnd = tp->rcv_wnd;
+        __entry->ssthresh = tcp_current_ssthresh(sk);
+        __entry->srtt = tp->srtt_us >> 3;
+    ),
+
+    TP_printk("src=%pISpc dest=%pISpc mark=%#x data_len=%d snd_nxt=%#x snd_una=%#x snd_cwnd=%u ssthresh=%u snd_wnd=%u srtt=%u rcv_wnd=%u",
+          __entry->saddr, __entry->daddr, __entry->mark,
+          __entry->data_len, __entry->snd_nxt, __entry->snd_una,
+          __entry->snd_cwnd, __entry->ssthresh, __entry->snd_wnd,
+          __entry->srtt, __entry->rcv_wnd)
+);
+
 #endif /* _TRACE_TCP_H */
 
 #undef TRACE_INCLUDE_PATH
