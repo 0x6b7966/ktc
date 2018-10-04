@@ -1,3 +1,13 @@
+#include <net/xfrm.h>
+#include <net/ip.h>
+#include <net/tcp.h>
+#include <net/busy_poll.h>
+
+#ifdef CONFIG_TCP_MD5SIG
+static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+                   __be32 daddr, __be32 saddr, const struct tcphdr *th);
+#endif
+
 /*
  *	This routine will send an RST to the other tcp.
  *
@@ -357,6 +367,7 @@ static void __trace_tcp_drop(struct sock *sk, struct sk_buff *skb)
 {
     (void)sk;
     (void)skb;
+    pr_warn("tcp_drop");
 }
 
 static void tcp_drop(struct sock *sk, struct sk_buff *skb)
@@ -368,7 +379,6 @@ static void tcp_drop(struct sock *sk, struct sk_buff *skb)
     else if (likely(!atomic_dec_and_test(&skb->users)))
         return;
     __trace_tcp_drop(sk, skb);
-    __pr_warn("hello tcp_drop");
     __kfree_skb(skb);
 }
 
@@ -376,7 +386,7 @@ static void tcp_drop(struct sock *sk, struct sk_buff *skb)
  *	From tcp_input.c
  */
 
-int tcp_v4_rcv(struct sk_buff *skb)
+int lp_tcp_v4_rcv(struct sk_buff *skb)
 {
     const struct iphdr *iph;
     const struct tcphdr *th;
@@ -489,7 +499,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 
     discard_it:
     /* Discard frame. */
-    kfree_skb(skb);
+    tcp_drop(sk, skb);
     return 0;
 
     discard_and_relse:

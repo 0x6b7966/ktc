@@ -1,3 +1,7 @@
+#include <net/ip.h>
+#include <net/tcp.h>
+#include <net/icmp.h>
+
 static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
 {
     int ttl = inet->uc_ttl;
