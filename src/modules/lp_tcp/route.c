@@ -1,3 +1,8 @@
+#include <linux/types.h>
+#include <linux/inetdevice.h>
+#include <net/route.h>
+#include <net/ip_fib.h>
+
 /*
    We do not cache source address of outgoing interface,
    because it is used only by IP RR, TS and SRR options,

@@ -1,3 +1,6 @@
+#include <linux/inetdevice.h>
+#include <net/ip_fib.h>
+
 __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh)
 {
     nh->nh_saddr = inet_select_addr(nh->nh_dev,

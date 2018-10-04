@@ -1,3 +1,5 @@
+#include <net/icmp.h>
+
 /*
  *	Maintain the counters used in the SNMP statistics for outgoing ICMP
  */
