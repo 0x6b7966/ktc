@@ -363,7 +363,7 @@ static bool tcp_v4_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
     return ret;
 }
 
-static void __trace_tcp_drop(struct sock *sk, struct sk_buff *skb)
+void __trace_tcp_drop(struct sock *sk, struct sk_buff *skb)
 {
     (void)sk;
     (void)skb;

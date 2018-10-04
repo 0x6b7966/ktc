@@ -192,6 +192,21 @@ static struct jprobe tcp_receive_reset_jp = {
     .entry = jtcp_receive_reset,
 };
 
+static void jtcp_drop(struct sock *sk, struct sk_buff *skb)
+{  
+    pr_warn("jtcp_drop");
+    trace_tcp_drop(sk, skb);
+    jprobe_return();
+}
+
+static struct jprobe tcp_drop_jp = {
+        .kp = {
+                .symbol_name = "__trace_tcp_drop",
+        },
+        .entry = jtcp_drop,
+};
+
+
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
     &tcp_send_loss_probe_jp,
@@ -206,6 +221,7 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_destroy_sock_jp,
     &tcp_rcv_space_adjust_jp,
     &tcp_receive_reset_jp,
+    &tcp_drop_jp,
 };
 
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
