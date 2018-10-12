@@ -193,15 +193,15 @@ static struct jprobe tcp_receive_reset_jp = {
 };
 
 static void jtcp_drop(struct sock *sk, struct sk_buff *skb)
-{  
-    pr_warn("jtcp_drop");
+{
     trace_tcp_drop(sk, skb);
     jprobe_return();
 }
 
 static struct jprobe tcp_drop_jp = {
         .kp = {
-                .symbol_name = "__trace_tcp_drop",
+                .symbol_name = "tcp_v4_rcv",
+                .offset = 0x82,
         },
         .entry = jtcp_drop,
 };
