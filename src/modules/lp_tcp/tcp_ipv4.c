@@ -33,10 +33,10 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
     struct ip_reply_arg arg;
 #ifdef CONFIG_TCP_MD5SIG
     struct tcp_md5sig_key *key = NULL;
-	const __u8 *hash_location = NULL;
-	unsigned char newhash[16];
-	int genhash;
-	struct sock *sk1 = NULL;
+    const __u8 *hash_location = NULL;
+    unsigned char newhash[16];
+    int genhash;
+    struct sock *sk1 = NULL;
 #endif
     struct net *net;
 
@@ -72,48 +72,48 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
     net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
 #ifdef CONFIG_TCP_MD5SIG
     hash_location = tcp_parse_md5sig_option(th);
-	if (sk && sk_fullsock(sk)) {
-		key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)
-					&ip_hdr(skb)->saddr, AF_INET);
-	} else if (hash_location) {
-		/*
-		 * active side is lost. Try to find listening socket through
-		 * source port, and then find md5 key through listening socket.
-		 * we are not loose security here:
-		 * Incoming packet is checked with md5 hash with finding key,
-		 * no RST generated if md5 hash doesn't match.
-		 */
-		sk1 = __inet_lookup_listener(net,
-					     &tcp_hashinfo, ip_hdr(skb)->saddr,
-					     th->source, ip_hdr(skb)->daddr,
-					     ntohs(th->source), inet_iif(skb));
-		/* don't send rst if it can't find key */
-		if (!sk1)
-			return;
-		rcu_read_lock();
-		key = tcp_md5_do_lookup(sk1, (union tcp_md5_addr *)
-					&ip_hdr(skb)->saddr, AF_INET);
-		if (!key)
-			goto release_sk1;
+    if (sk && sk_fullsock(sk)) {
+        key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)
+                    &ip_hdr(skb)->saddr, AF_INET);
+    } else if (hash_location) {
+        /*
+         * active side is lost. Try to find listening socket through
+         * source port, and then find md5 key through listening socket.
+         * we are not loose security here:
+         * Incoming packet is checked with md5 hash with finding key,
+         * no RST generated if md5 hash doesn't match.
+         */
+        sk1 = __inet_lookup_listener(net,
+                         &tcp_hashinfo, ip_hdr(skb)->saddr,
+                         th->source, ip_hdr(skb)->daddr,
+                         ntohs(th->source), inet_iif(skb));
+        /* don't send rst if it can't find key */
+        if (!sk1)
+            return;
+        rcu_read_lock();
+        key = tcp_md5_do_lookup(sk1, (union tcp_md5_addr *)
+                    &ip_hdr(skb)->saddr, AF_INET);
+        if (!key)
+            goto release_sk1;
 
-		genhash = tcp_v4_md5_hash_skb(newhash, key, NULL, NULL, skb);
-		if (genhash || memcmp(hash_location, newhash, 16) != 0)
-			goto release_sk1;
-	}
+        genhash = tcp_v4_md5_hash_skb(newhash, key, NULL, NULL, skb);
+        if (genhash || memcmp(hash_location, newhash, 16) != 0)
+            goto release_sk1;
+    }
 
-	if (key) {
-		rep.opt[0] = htonl((TCPOPT_NOP << 24) |
-				   (TCPOPT_NOP << 16) |
-				   (TCPOPT_MD5SIG << 8) |
-				   TCPOLEN_MD5SIG);
-		/* Update length and the length the header thinks exists */
-		arg.iov[0].iov_len += TCPOLEN_MD5SIG_ALIGNED;
-		rep.th.doff = arg.iov[0].iov_len / 4;
+    if (key) {
+        rep.opt[0] = htonl((TCPOPT_NOP << 24) |
+                   (TCPOPT_NOP << 16) |
+                   (TCPOPT_MD5SIG << 8) |
+                   TCPOLEN_MD5SIG);
+        /* Update length and the length the header thinks exists */
+        arg.iov[0].iov_len += TCPOLEN_MD5SIG_ALIGNED;
+        rep.th.doff = arg.iov[0].iov_len / 4;
 
-		tcp_v4_md5_hash_hdr((__u8 *) &rep.opt[1],
-				     key, ip_hdr(skb)->saddr,
-				     ip_hdr(skb)->daddr, &rep.th);
-	}
+        tcp_v4_md5_hash_hdr((__u8 *) &rep.opt[1],
+                     key, ip_hdr(skb)->saddr,
+                     ip_hdr(skb)->daddr, &rep.th);
+    }
 #endif
     arg.csum = csum_tcpudp_nofold(ip_hdr(skb)->daddr,
                                   ip_hdr(skb)->saddr, /* XXX */
@@ -142,10 +142,10 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
 
 #ifdef CONFIG_TCP_MD5SIG
     release_sk1:
-	if (sk1) {
-		rcu_read_unlock();
-		sock_put(sk1);
-	}
+    if (sk1) {
+        rcu_read_unlock();
+        sock_put(sk1);
+    }
 #endif
 }
 
@@ -195,19 +195,19 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
 
 #ifdef CONFIG_TCP_MD5SIG
     if (key) {
-		int offset = (tsecr) ? 3 : 0;
+        int offset = (tsecr) ? 3 : 0;
 
-		rep.opt[offset++] = htonl((TCPOPT_NOP << 24) |
-					  (TCPOPT_NOP << 16) |
-					  (TCPOPT_MD5SIG << 8) |
-					  TCPOLEN_MD5SIG);
-		arg.iov[0].iov_len += TCPOLEN_MD5SIG_ALIGNED;
-		rep.th.doff = arg.iov[0].iov_len/4;
+        rep.opt[offset++] = htonl((TCPOPT_NOP << 24) |
+                      (TCPOPT_NOP << 16) |
+                      (TCPOPT_MD5SIG << 8) |
+                      TCPOLEN_MD5SIG);
+        arg.iov[0].iov_len += TCPOLEN_MD5SIG_ALIGNED;
+        rep.th.doff = arg.iov[0].iov_len/4;
 
-		tcp_v4_md5_hash_hdr((__u8 *) &rep.opt[offset],
-				    key, ip_hdr(skb)->saddr,
-				    ip_hdr(skb)->daddr, &rep.th);
-	}
+        tcp_v4_md5_hash_hdr((__u8 *) &rep.opt[offset],
+                    key, ip_hdr(skb)->saddr,
+                    ip_hdr(skb)->daddr, &rep.th);
+    }
 #endif
     arg.flags = reply_flags;
     arg.csum = csum_tcpudp_nofold(ip_hdr(skb)->daddr,
@@ -379,6 +379,7 @@ static void tcp_drop(struct sock *sk, struct sk_buff *skb)
     else if (likely(!atomic_dec_and_test(&skb->users)))
         return;
     __trace_tcp_drop(sk, skb);
+    trace_tcp_drop(NULL, NULL);
     __kfree_skb(skb);
 }
 
@@ -447,13 +448,13 @@ int lp_tcp_v4_rcv(struct sk_buff *skb)
 
 #ifdef CONFIG_TCP_MD5SIG
     /*
-	 * We really want to reject the packet as early as possible
-	 * if:
-	 *  o We're expecting an MD5'd packet and this is no MD5 tcp option
-	 *  o There is an MD5 option and we're not expecting one
-	 */
-	if (tcp_v4_inbound_md5_hash(sk, skb))
-		goto discard_and_relse;
+     * We really want to reject the packet as early as possible
+     * if:
+     *  o We're expecting an MD5'd packet and this is no MD5 tcp option
+     *  o There is an MD5 option and we're not expecting one
+     */
+    if (tcp_v4_inbound_md5_hash(sk, skb))
+        goto discard_and_relse;
 #endif
 
     nf_reset(skb);

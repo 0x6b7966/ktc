@@ -12,7 +12,6 @@
 #include "ip_sockglue.c"
 #include "icmp.c"
 #include "route.c"
-#include "tcp_ipv4.c"
 
 struct per_cpu_dm_data {
     spinlock_t		lock;
@@ -58,24 +57,7 @@ static struct genl_family tcp_drop_monitor_family = {
 };
 
 static int dm_hit_limit = 64;
-
-static struct klp_func funcs[] = {
-    {
-        .old_name = "tcp_v4_rcv",
-        .new_func = lp_tcp_v4_rcv,
-    }, { }
-};
-
-static struct klp_object objs[] = {
-    {
-        .funcs = funcs,
-    }, { }
-};
-
-static struct klp_patch patch = {
-    .mod = THIS_MODULE,
-    .objs = objs,
-};
+static int dm_delay = 1;
 
 static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
 {
@@ -130,6 +112,53 @@ static void sched_send_work(unsigned long _data)
     schedule_work(&data->dm_alert_work);
 }
 
+static void trace_tcp_drop(struct sk_buff *skb, void *location)
+{
+    struct tcp_dm_alert_msg *msg;
+    struct nlmsghdr *nlh;
+    struct nlattr *nla;
+    int i;
+    struct sk_buff *dskb;
+    struct per_cpu_dm_data *data;
+    unsigned long flags;
+
+    local_irq_save(flags);
+    data = &__get_cpu_var(dm_cpu_data);
+    spin_lock(&data->lock);
+    dskb = data->skb;
+
+    if (!dskb)
+        goto out;
+
+    nlh = (struct nlmsghdr *)dskb->data;
+    nla = genlmsg_data(nlmsg_data(nlh));
+    msg = nla_data(nla);
+    for (i = 0; i < msg->entries; i++) {
+        if (!memcmp(&location, msg->points[i].pc, sizeof(void *))) {
+            msg->points[i].count++;
+            goto out;
+        }
+    }
+    if (msg->entries == dm_hit_limit)
+        goto out;
+    /*
+     * We need to create a new entry
+     */
+    __nla_reserve_nohdr(dskb, sizeof(struct tcp_dm_drop_point));
+    nla->nla_len += NLA_ALIGN(sizeof(struct tcp_dm_drop_point));
+    memcpy(msg->points[msg->entries].pc, &location, sizeof(void *));
+    msg->points[msg->entries].count = 1;
+    msg->entries++;
+
+    if (!timer_pending(&data->send_timer)) {
+        data->send_timer.expires = jiffies + dm_delay * HZ;
+        add_timer(&data->send_timer);
+    }
+
+out:
+    spin_unlock_irqrestore(&data->lock, flags);
+}
+
 static int init_tcp_drop_monitor(void)
 {
     struct per_cpu_dm_data *data;
@@ -174,6 +203,26 @@ static void exit_tcp_drop_monitor(void)
 
     BUG_ON(genl_unregister_family(&tcp_drop_monitor_family));
 }
+
+#include "tcp_ipv4.c"
+
+static struct klp_func funcs[] = {
+    {
+        .old_name = "tcp_v4_rcv",
+        .new_func = lp_tcp_v4_rcv,
+    }, { }
+};
+
+static struct klp_object objs[] = {
+    {
+        .funcs = funcs,
+    }, { }
+};
+
+static struct klp_patch patch = {
+    .mod = THIS_MODULE,
+    .objs = objs,
+};
 
 static int __init lp_tcp_init(void)
 {
