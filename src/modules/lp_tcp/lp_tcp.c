@@ -181,6 +181,7 @@ static int init_tcp_drop_monitor(void)
         data->send_timer.data = (unsigned long)data;
         data->send_timer.function = sched_send_work;
         spin_lock_init(&data->lock);
+        reset_per_cpu_data(data);
     }
 
     goto out;
