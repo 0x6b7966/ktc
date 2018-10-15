@@ -19,16 +19,16 @@ struct per_cpu_dm_data {
     struct sk_buff		*skb;
 };
 
-static struct genl_family net_drop_monitor_family;
+static struct genl_family tcp_drop_monitor_family;
 
 static DEFINE_PER_CPU(struct per_cpu_dm_data, dm_cpu_data);
 
 static const struct genl_ops dropmon_ops[] = {};
 
-static struct genl_family net_drop_monitor_family = {
-    .hdrsize        = 0,
-    .name           = "NET_DM",
-    .version        = 2,
+static struct genl_family tcp_drop_monitor_family = {
+    .hdrsize            = 0,
+    .name               = "TCP_DM",
+    .version            = 2,
     .module		= THIS_MODULE,
     .ops		= dropmon_ops,
     .n_ops		= ARRAY_SIZE(dropmon_ops),
@@ -52,16 +52,16 @@ static struct klp_patch patch = {
     .objs = objs,
 };
 
-static int init_net_drop_monitor(void)
+static int init_tcp_drop_monitor(void)
 {
     struct per_cpu_dm_data *data;
     int cpu, rc;
 
-    pr_info("Initializing network drop monitor service\n");
+    pr_info("Initializing tcp layer drop monitor service\n");
 
-    rc = genl_register_family(&net_drop_monitor_family);
+    rc = genl_register_family(&tcp_drop_monitor_family);
     if (rc) {
-        pr_err("Could not create drop monitor netlink family\n");
+        pr_err("Could not create drop monitor tcp layer family\n");
         return rc;
     }
 
@@ -74,13 +74,11 @@ static int init_net_drop_monitor(void)
 
     goto out;
 
-out_unreg:
-    genl_unregister_family(&net_drop_monitor_family);
 out:
     return rc;
 }
 
-static void exit_net_drop_monitor(void)
+static void exit_tcp_drop_monitor(void)
 {
     struct per_cpu_dm_data *data;
     int cpu;
@@ -90,14 +88,14 @@ static void exit_net_drop_monitor(void)
         kfree_skb(data->skb);
     }
 
-    BUG_ON(genl_unregister_family(&net_drop_monitor_family));
+    BUG_ON(genl_unregister_family(&tcp_drop_monitor_family));
 }
 
 static int __init lp_tcp_init(void)
 {
     int rc;
 
-    rc = init_net_drop_monitor();
+    rc = init_tcp_drop_monitor();
     if (rc)
         return rc;
 
@@ -113,7 +111,7 @@ static int __init lp_tcp_init(void)
     rc = klp_enable_patch(&patch);
     if (rc) {
         WARN_ON(klp_unregister_patch(&patch));
-        return ret;
+        return rc;
     }
 
     return 0;
@@ -121,7 +119,7 @@ static int __init lp_tcp_init(void)
 
 static void __exit lp_tcp_exit(void)
 {
-    exit_net_drop_monitor();
+    exit_tcp_drop_monitor();
     WARN_ON(klp_unregister_patch(&patch));
 }
 
