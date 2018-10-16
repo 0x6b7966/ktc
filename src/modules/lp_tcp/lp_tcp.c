@@ -22,6 +22,8 @@ struct per_cpu_dm_data {
 
 struct tcp_dm_drop_point {
     __u8 pc[8];
+    __u16 sport;
+    __u16 dport;
     __u32 count;
 };
 
@@ -97,7 +99,6 @@ static void send_dm_alert(struct work_struct *work)
     struct per_cpu_dm_data *data;
 
     data = container_of(work, struct per_cpu_dm_data, dm_alert_work);
-
     skb = reset_per_cpu_data(data);
 
     if (skb)
@@ -112,7 +113,7 @@ static void sched_send_work(unsigned long _data)
     schedule_work(&data->dm_alert_work);
 }
 
-static void trace_tcp_drop(struct sk_buff *skb, void *location)
+static void trace_tcp_drop(struct sock *sk, struct sk_buff *skb, void *location)
 {
     struct tcp_dm_alert_msg *msg;
     struct nlmsghdr *nlh;
@@ -121,6 +122,7 @@ static void trace_tcp_drop(struct sk_buff *skb, void *location)
     struct sk_buff *dskb;
     struct per_cpu_dm_data *data;
     unsigned long flags;
+    struct inet_sock *inet = inet_sk(sk);
 
     local_irq_save(flags);
     data = &__get_cpu_var(dm_cpu_data);
@@ -147,6 +149,8 @@ static void trace_tcp_drop(struct sk_buff *skb, void *location)
     __nla_reserve_nohdr(dskb, sizeof(struct tcp_dm_drop_point));
     nla->nla_len += NLA_ALIGN(sizeof(struct tcp_dm_drop_point));
     memcpy(msg->points[msg->entries].pc, &location, sizeof(void *));
+    msg->points[msg->entries].sport = ntohs(inet->inet_sport);
+    msg->points[msg->entries].dport = ntohs(inet->inet_dport);
     msg->points[msg->entries].count = 1;
     msg->entries++;
 
