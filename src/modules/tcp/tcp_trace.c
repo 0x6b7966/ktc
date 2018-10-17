@@ -208,25 +208,6 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_receive_reset_jp,
 };
 
-static void ktcp_drop_post(struct kprobe *p, struct pt_regs *regs)
-{
-    struct sock *sk = (void*)regs->di;
-    struct sk_buff *skb = (void*)regs->si;
-
-    trace_tcp_drop(sk, skb);
-    jprobe_return();
-}
-
-static struct kprobe tcp_drop_kp = {
-    .symbol_name = "tcp_v4_rcv",
-    .offset = 0x82,
-    .post_handler = ktcp_drop_post,
-};
-
-static struct kprobe *tcp_kprobes[] = {
-    &tcp_drop_kp,
-};
-
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
     struct sock *sk;                                                    \
     struct sockaddr *uaddr;                                             \
@@ -409,13 +390,6 @@ static int __init tcp_trace_init(void) {
         return ret;
     }
     pr_info("Register tcp kretprobes successed\n");
-
-    ret = register_kprobes(tcp_kprobes, sizeof(tcp_kprobes) / sizeof(tcp_kprobes[0]));
-    if (ret) {
-        pr_err("Register tcp kprobes failed\n");
-        return ret;
-    }
-    pr_info("Register tcp kprobes successed\n");
 
     return 0;
 }
