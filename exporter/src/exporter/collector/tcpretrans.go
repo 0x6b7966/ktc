@@ -7,18 +7,18 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-        _ "github.com/prometheus/common/log"
-        _ "gopkg.in/alecthomas/kingpin.v2"
+        "github.com/prometheus/common/log"
 )
 
 const (
 	script = "./tcpretrans"
-)
+) 
+
 
 var (
 	scanner *bufio.Scanner
 	ready = make(chan bool)
-	info = make(chan string, 4096)
+	info = make(chan string, 40960)
 )
 
 type tcpretransCollector struct {
@@ -33,6 +33,7 @@ func init() {
 
 func runTCPRetransScript() {
 	go func() {
+		log.Infoln("Script: ", script)
 		cmd := exec.Command(script)
 		cmdReader, _ := cmd.StdoutPipe()
 		scanner = bufio.NewScanner(cmdReader)
@@ -46,12 +47,9 @@ func parseTCPRetransInfo() {
 	go func() {
 		re_inside_whtsp := regexp.MustCompile(`[\s\p{Zs}]{2,}`)
 		waitPipeReady()
-		if scanner.Scan() {
-			scanner.Text()
-		}
 		for scanner.Scan() {
 			line := strings.SplitN(
-				re_inside_whtsp.ReplaceAllString(scanner.Text(), " "), " ", 4)
+				re_inside_whtsp.ReplaceAllString(scanner.Text(), " "), " ", 3)
 			info <- line[len(line) - 1]
 		}
 	}()
@@ -61,12 +59,12 @@ func waitPipeReady() {
 	<- ready
 }
 
-func getTCPRetransInfo() []string {
-	items := []string{}
+func getTCPRetransInfo() map[string]int {
+	items := make(map[string]int)
 	for {
 		select {
 			case i := <- info:
-				items = append(items, i)
+				items[i] += 1
 			default:
 				goto end
 		}
@@ -87,8 +85,9 @@ func NewTCPRetransCollector() (Collector, error) {
 
 func (c *tcpretransCollector) Update(ch chan <- prometheus.Metric) error {
 	items := getTCPRetransInfo()
-	for _, item := range items {
-		ch <- c.retrans.mustNewConstMetric(1, item)
+	for k, v := range items {
+		ch <- c.retrans.mustNewConstMetric(float64(v), k)
+		log.Infoln("k: ", v, " v: ", k)
 	}
 	return nil
 }
