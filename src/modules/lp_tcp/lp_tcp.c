@@ -4,6 +4,8 @@
 #include <linux/percpu.h>
 #include <net/genetlink.h>
 
+#include "tcp_dropmon.h"
+
 #include "sock.c"
 #include "fib_frontend.c"
 #include "fib_semantics.c"
@@ -19,31 +21,6 @@ struct per_cpu_dm_data {
     struct work_struct	dm_alert_work;
     struct timer_list	send_timer;
 };
-
-struct tcp_dm_drop_point {
-    __u8 pc[8];
-    __u16 sport;
-    __u16 dport;
-    __u32 count;
-};
-
-struct tcp_dm_alert_msg {
-    __u32 entries;
-    struct tcp_dm_drop_point points[0];
-};
-
-enum {
-    TCP_DM_CMD_UNSPEC = 0,
-    TCP_DM_CMD_ALERT,
-    TCP_DM_CMD_CONFIG,
-    TCP_DM_CMD_START,
-    TCP_DM_CMD_STOP,
-    _TCP_DM_CMD_MAX,
-};
-
-#define TCP_DM_CMD_MAX (_TCP_DM_CMD_MAX - 1)
-
-static struct genl_family tcp_drop_monitor_family;
 
 static DEFINE_PER_CPU(struct per_cpu_dm_data, dm_cpu_data);
 
