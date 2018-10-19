@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-        "github.com/prometheus/common/log"
+	"github.com/prometheus/common/log"
 )
 
 const (
@@ -46,11 +46,15 @@ func runTCPRetransScript() {
 func parseTCPRetransInfo() {
 	go func() {
 		re_inside_whtsp := regexp.MustCompile(`[\s\p{Zs}]{2,}`)
+		validID := regexp.MustCompile(`^[0-9]+$`)
 		waitPipeReady()
 		for scanner.Scan() {
 			line := strings.SplitN(
 				re_inside_whtsp.ReplaceAllString(scanner.Text(), " "), " ", 3)
-			info <- line[len(line) - 1]
+			pid := line[1]
+			if validID.MatchString(pid) && pid != "0" {
+				info <- pid
+			}
 		}
 	}()
 }
@@ -78,7 +82,7 @@ func NewTCPRetransCollector() (Collector, error) {
 		retrans: typedDesc{prometheus.NewDesc(
                         prometheus.BuildFQName(namespace, "tcp", "retrans"),
                         "Tcp retrans info.",
-                        []string{"tcp"}, nil,
+                        []string{"pid"}, nil,
                 ), prometheus.GaugeValue},
 	}, nil
 }
