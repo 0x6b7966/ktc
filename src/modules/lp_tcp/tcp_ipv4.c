@@ -373,7 +373,8 @@ static void tcp_drop(struct sock *sk, struct sk_buff *skb)
         smp_rmb();
     else if (likely(!atomic_dec_and_test(&skb->users)))
         return;
-    trace_tcp_drop(skb, __builtin_return_address(0));
+    // trace_tcp_drop(skb, lp_tcp_v4_rcvltin_return_address(0));
+    trace_tcp_drop(skb, lp_tcp_v4_rcv);
     __kfree_skb(skb);
 }
 
