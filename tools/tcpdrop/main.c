@@ -17,6 +17,7 @@
 #include <netlink/genl/ctrl.h>
 
 #include "tcp_dropmon.h"
+#include "lookup.h"
 
 struct netlink_message {
 	void *msg;
@@ -26,6 +27,10 @@ struct netlink_message {
 	int seq;
 	void (*ack_cb)(struct netlink_message *amsg, struct netlink_message *msg, int err);
 };
+
+LIST_HEAD(ack_list, netlink_message);
+
+struct ack_list ack_list_head = {NULL};
 
 static struct nl_sock *nsd;
 static int nsf;
@@ -46,6 +51,7 @@ struct nl_sock *setup_netlink_socket()
 	genl_connect(sd);
 
 	family = genl_ctrl_resolve(sd, "TCP_DM");
+	fprintf(stderr, "TCP_DM's family: %d\n", family);
 
 	if (family < 0) {
 		printf("Unable to find TCP_DM family, tcpdrop can't work\n");
@@ -58,7 +64,7 @@ struct nl_sock *setup_netlink_socket()
 	nl_socket_free(sd);
 
 	sd = nl_socket_alloc();
-	nl_join_groups(sd, TCP_DM_GRP_ALERT);
+	nl_join_groups(sd, 16);
 
 	nl_connect(sd, NETLINK_GENERIC);
 
@@ -71,11 +77,136 @@ out_close:
 
 }
 
+struct netlink_message *wrap_netlink_msg(struct nlmsghdr *buf)
+{
+    struct netlink_message *msg;
+
+    msg = (struct netlink_message *)malloc(sizeof(struct netlink_message));
+    if (msg) {
+        msg->refcnt = 1;
+        msg->msg = buf;
+        msg->nlbuf = NULL;
+    }
+
+    return msg;
+}
+
+int free_netlink_msg(struct netlink_message *msg)
+{
+    int refcnt;
+
+    msg->refcnt--;
+
+    refcnt = msg->refcnt;
+
+    if (!refcnt) {
+        if (msg->nlbuf)
+            nlmsg_free(msg->nlbuf);
+        else
+            free(msg->msg);
+        free(msg);
+    }
+
+    return refcnt;
+}
+
+struct netlink_message *recv_netlink_message(int *err)
+{
+    static unsigned char *buf;
+    struct netlink_message *msg;
+    struct genlmsghdr *glm;
+    struct sockaddr_nl nla;
+    int type;
+    int rc;
+
+    *err = 0;
+
+    do {
+        rc = nl_recv(nsd, &nla, &buf, NULL);
+        if (rc < 0) {    
+            switch (errno) {
+            case EINTR:
+                /*
+ 		 * Take a pass throught the state loop
+ 		 */
+                return NULL;
+                break;
+            default:
+                perror("Receive operation failed:");
+                return NULL;
+                break;
+            }
+        }
+    } while (rc == 0);
+
+    msg = wrap_netlink_msg((struct nlmsghdr *)buf);
+
+    type = ((struct nlmsghdr *)msg->msg)->nlmsg_type;
+
+    /*
+     * Note the NLMSG_ERROR is overloaded
+     * Its also used to deliver ACKs
+     */
+    if (type == NLMSG_ERROR) {
+        struct netlink_message *am;
+        struct nlmsgerr *errm = nlmsg_data(msg->msg);
+        LIST_FOREACH(am, &ack_list_head, ack_list_element) {
+            if (am->seq == errm->msg.nlmsg_seq)
+                break;
+        }
+    
+        if (am) {    
+            LIST_REMOVE(am, ack_list_element);
+            am->ack_cb(msg, am, errm->error);
+            free_netlink_msg(am);
+        } else {
+            printf("Got an unexpected ack for sequence %d\n", errm->msg.nlmsg_seq);
+        }
+
+        free_netlink_msg(msg);
+        return NULL;
+    }
+
+    glm = nlmsg_data(msg->msg);
+    type = glm->cmd;
+    
+    if ((type > TCP_DM_CMD_MAX) ||
+        (type <= TCP_DM_CMD_UNSPEC)) {
+        printf("Received message of unknown type %d\n", 
+            type);
+        free_netlink_msg(msg);
+        return NULL;
+    }
+
+    return msg;    
+}
+
+void handle_dm_alert_msg(struct netlink_message *msg, int err)
+{
+	int i;
+	struct nlmsghdr *nlh = msg->msg;
+	struct genlmsghdr *glh = nlmsg_data(nlh);
+	struct loc_result res;
+	struct tcp_dm_alert_msg *alert = nla_data(genlmsg_data(glh));
+
+
+	for (i=0; i < alert->entries; i++) {
+		void *location;
+		memcpy(&location, alert->points[i].pc, sizeof(void *));
+		if (lookup_symbol(location, &res))
+                        printf ("%d drops at location %p\n", alert->points[i].count, location);
+                else
+                        printf ("%d drops at %s+%llx (%p)\n",
+                                alert->points[i].count, res.symbol, res.offset, location);
+	}	
+
+	free_netlink_msg(msg);
+}
+
 void process_rx_message(void)
 {
 	struct netlink_message *msg;
 	int err;
-	int type;
 	sigset_t bs;
 
 	sigemptyset(&bs);
@@ -84,28 +215,29 @@ void process_rx_message(void)
 	msg = recv_netlink_message(&err);
 	sigprocmask(SIG_BLOCK, &bs, NULL);
 
-	if (msg) {
-		struct nlmsghdr *nlh = msg->msg;
-		struct genlmsghdr *glh = nlmsg_data(nlh);
-		type  = glh->cmd;
-		fprintf(stderr,  "type: %d\n", type);
-	}
-	return;
+	if (!msg) 
+		return;
+
+	handle_dm_alert_msg(msg, err);
 }
 
 void loop(void)
 {
-	process_rx_message();
+	while (1) {
+		process_rx_message();
+	}
 }
 
 int main (int argc, char **argv)
 {
 	nsd = setup_netlink_socket();
 
-	if (nsd == NULL) {
+	if (!nsd) {
 		printf("Cleaning up on socket creation error\n");
 		goto out;
 	}
+
+	init_lookup();
 
 	loop();
 
