@@ -49,9 +49,6 @@ struct tcp_dm_user_msg {
 enum {
 	TCP_DM_CMD_UNSPEC = 0,
 	TCP_DM_CMD_ALERT,
-	TCP_DM_CMD_CONFIG,
-	TCP_DM_CMD_START,
-	TCP_DM_CMD_STOP,
 	_TCP_DM_CMD_MAX,
 };
 
@@ -60,5 +57,5 @@ enum {
 /*
  * Our group identifiers
  */
-#define TCP_DM_GRP_ALERT 1
+#define TCP_DM_GRP_ALERT 5
 #endif

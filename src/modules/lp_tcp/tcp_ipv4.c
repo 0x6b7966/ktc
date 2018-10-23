@@ -363,6 +363,8 @@ static bool tcp_v4_inbound_md5_hash(struct sock *sk, const struct sk_buff *skb)
     return ret;
 }
 
+extern int lp_tcp_v4_rcv(struct sk_buff *skb);
+
 static void tcp_drop(struct sock *sk, struct sk_buff *skb)
 {
     if (unlikely(!skb))
@@ -371,7 +373,7 @@ static void tcp_drop(struct sock *sk, struct sk_buff *skb)
         smp_rmb();
     else if (likely(!atomic_dec_and_test(&skb->users)))
         return;
-    trace_tcp_drop(skb, tcp_drop);
+    trace_tcp_drop(skb, __builtin_return_address(0));
     __kfree_skb(skb);
 }
 
@@ -490,7 +492,7 @@ int lp_tcp_v4_rcv(struct sk_buff *skb)
         tcp_v4_send_reset(NULL, skb);
     }
 
-    discard_it:
+discard_it:
     /* Discard frame. */
     tcp_drop(sk, skb);
     return 0;

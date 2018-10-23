@@ -70,5 +70,4 @@ module_exit(lp_tcp_exit);
 MODULE_AUTHOR("Zwb <ethercflow@gmail.com>");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
-MODULE_ALIAS_GENL_FAMILY("TCP_DM");
 MODULE_INFO(livepatch, "Y");
