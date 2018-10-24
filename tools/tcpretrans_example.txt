@@ -82,7 +82,7 @@ TIME     PID   LADDR:LPORT          T> RADDR:RPORT         STATE
  => xen_evtchn_do_upcall
  => xen_do_hypervisor_callback
 
-This looks like a timeout retransmit
+This looks like a fast retransmit
 
 USAGE message:
 
