@@ -1,10 +1,6 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
-#include <linux/livepatch.h>
 #include <net/tcp.h>
-#include <net/xfrm.h>
-#include <net/busy_poll.h>
-#include <net/ip.h>
 
 #define CREATE_TRACE_POINTS
 #include "tcp_trace.h"
