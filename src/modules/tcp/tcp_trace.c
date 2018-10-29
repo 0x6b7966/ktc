@@ -5,67 +5,56 @@
 #define CREATE_TRACE_POINTS
 #include "tcp_trace.h"
 
-static int jtcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+#define _DECL_CMN_JRP(fn, symbol) static struct jprobe fn##_jp = { \
+    .entry	        = on_##fn##_ent,                               \
+    .kp.symbol_name = ""#symbol"",                                 \
+};
+
+#define DECL_CMN_JRP(fn) _DECL_CMN_JRP(fn, fn)
+
+static int on_tcp_retransmit_skb_ent(struct sock *sk, struct sk_buff *skb)
 {
     trace_tcp_retransmit_skb(sk, skb);
     jprobe_return();
     return 0;
-
 }
 
-static struct jprobe tcp_retransmit_skb_jp = {
-    .kp = {
-        .symbol_name = "tcp_retransmit_skb",
-    },
-    .entry = jtcp_retransmit_skb,
-};
+DECL_CMN_JRP(tcp_retransmit_skb);
 
-static int jtcp_send_loss_probe(struct sock *sk)
+static int on_tcp_send_loss_probe_ent(struct sock *sk)
 {
     trace_tcp_send_loss_probe(sk);
     jprobe_return();
     return 0;
 }
 
-static struct jprobe tcp_send_loss_probe_jp = {
-    .kp = {
-        .symbol_name = "tcp_send_loss_probe",
-    },
-    .entry = jtcp_send_loss_probe,
-};
+DECL_CMN_JRP(tcp_send_loss_probe);
 
-static int jtcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+static int on_tcp_v4_connect_ent(struct sock *sk, struct sockaddr *uaddr,
+                                 int addr_len)
 {
     trace_tcp_v4_connect_entry(sk, uaddr, addr_len);
     jprobe_return();
     return 0;
 }
 
-static struct jprobe tcp_v4_connect_jp = {
-    .kp = {
-        .symbol_name = "tcp_v4_connect",
-    },
-    .entry = jtcp_v4_connect,
-};
+DECL_CMN_JRP(tcp_v4_connect);
 
-static int jtcp_v6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+static int on_tcp_v6_connect_ent(struct sock *sk, struct sockaddr *uaddr,
+                                 int addr_len)
 {
     trace_tcp_v6_connect_entry(sk, uaddr, addr_len);
     jprobe_return();
     return 0;
 }
 
-static struct jprobe tcp_v6_connect_jp = {
-    .kp = {
-        .symbol_name = "tcp_v6_connect",
-    },
-    .entry = jtcp_v6_connect,
-};
+DECL_CMN_JRP(tcp_v6_connect);
 
-static int jtcp_rcv_state_process(struct sock *sk, struct sk_buff *skb, const struct tcphdr *th, unsigned int len)
+static int on_tcp_rcv_state_process_ent(struct sock *sk, struct sk_buff *skb,
+                                        const struct tcphdr *th, unsigned int len)
 {
     if (sk->__sk_common.skc_state != TCP_SYN_SENT)
-    goto end;
+        goto end;
 
     trace_tcp_rcv_state_process(sk, skb, th, len);
 
@@ -74,119 +63,78 @@ end:
     return 0;
 }
 
-static struct jprobe tcp_rcv_state_process_jp = {
-    .kp = {
-        .symbol_name = "tcp_rcv_state_process",
-    },
-    .entry = jtcp_rcv_state_process,
-};
+DECL_CMN_JRP(tcp_rcv_state_process);
 
-static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
-                                 const struct tcphdr *th, unsigned int len)
+static void on_tcp_rcv_established_ent(struct sock *sk, struct sk_buff *skb,
+                                       const struct tcphdr *th, unsigned int len)
 {
     /* TCP congestion window tracking */
     trace_tcp_probe(sk, skb);
     jprobe_return();
 }
 
-static struct jprobe tcp_rcv_established_jp = {
-    .kp = {
-        .symbol_name = "tcp_rcv_established",
-    },
-    .entry = jtcp_rcv_established,
-};
+DECL_CMN_JRP(tcp_rcv_established);
 
-static int jtcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, size_t size)
+static int on_tcp_sendmsg_ent(struct kiocb *iocb, struct sock *sk,
+                              struct msghdr *msg, size_t size)
 {
     trace_tcp_sendmsg(iocb, sk, msg, size);
     jprobe_return();
     return 0;
 }
 
-static struct jprobe tcp_sendmsg_jp = {
-    .kp = {
-        .symbol_name = "tcp_sendmsg",
-    },
-    .entry = jtcp_sendmsg,
-};
+DECL_CMN_JRP(tcp_sendmsg);
 
-static void jtcp_cleanup_rbuf(struct sock *sk, int copied)
+static void on_tcp_cleanup_rbuf_ent(struct sock *sk, int copied)
 {
     trace_tcp_cleanup_rbuf(sk, copied);
     jprobe_return();
 }
 
-static struct jprobe tcp_cleanup_rbuf_jp = {
-    .kp = {
-        .symbol_name = "tcp_cleanup_rbuf",
-    },
-    .entry = jtcp_cleanup_rbuf,
-};
+DECL_CMN_JRP(tcp_cleanup_rbuf);
 
-static void jtcp_set_state(struct sock *sk, int state)
+static void on_tcp_set_state_ent(struct sock *sk, int state)
 {
     trace_tcp_set_state(sk, sk->sk_state, state);
     jprobe_return();
 }
 
-static struct jprobe tcp_set_state_jp = {
-    .kp = {
-        .symbol_name = "tcp_set_state",
-    },
-    .entry = jtcp_set_state,
-};
+DECL_CMN_JRP(tcp_set_state);
 
-static void jtcp_close(struct sock *sk, long timeout)
+static void on_tcp_close_ent(struct sock *sk, long timeout)
 {
     trace_tcp_close(sk, timeout);
     jprobe_return();
 }
 
-static struct jprobe tcp_close_jp = {
-    .kp = {
-        .symbol_name = "tcp_close"
-    },
-    .entry = jtcp_close,
-};
+DECL_CMN_JRP(tcp_close);
 
-static void jtcp_destroy_sock(struct sock *sk)
+static void on_tcp_v4_destroy_sock_ent(struct sock *sk)
 {
     trace_tcp_destroy_sock(sk);
     jprobe_return();
 }
 
-static struct jprobe tcp_destroy_sock_jp = {
-    .kp = {
-        .symbol_name = "tcp_v4_destroy_sock",
-    },
-    .entry = jtcp_destroy_sock,
-};
+DECL_CMN_JRP(tcp_v4_destroy_sock);
 
-static void jtcp_rcv_space_adjust(struct sock *sk)
+static void on_tcp_rcv_space_adjust_ent(struct sock *sk)
 {
     trace_tcp_rcv_space_adjust(sk);
     jprobe_return();
 }
 
-static struct jprobe tcp_rcv_space_adjust_jp = {
-    .kp = {
-        .symbol_name = "tcp_rcv_space_adjust",
-    },
-    .entry = jtcp_rcv_space_adjust,
-};
+DECL_CMN_JRP(tcp_rcv_space_adjust);
 
-static void jtcp_receive_reset(struct sock *sk)
+/*
+ * tcp_receive_reset
+ */
+static void on_tcp_reset_ent(struct sock *sk)
 {
     trace_tcp_receive_reset(sk);
     jprobe_return();
 }
 
-static struct jprobe tcp_receive_reset_jp = {
-    .kp = {
-        .symbol_name = "tcp_reset",
-    },
-    .entry = jtcp_receive_reset,
-};
+DECL_CMN_JRP(tcp_reset);
 
 static struct jprobe *tcp_jprobes[] = {
     &tcp_retransmit_skb_jp,
@@ -199,9 +147,9 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_cleanup_rbuf_jp,
     &tcp_set_state_jp,
     &tcp_close_jp,
-    &tcp_destroy_sock_jp,
+    &tcp_v4_destroy_sock_jp,
     &tcp_rcv_space_adjust_jp,
-    &tcp_receive_reset_jp,
+    &tcp_reset_jp,
 };
 
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
