@@ -6,7 +6,7 @@
 #include "tcp_trace.h"
 
 #define _DECL_CMN_JRP(fn, symbol) static struct jprobe fn##_jp = { \
-    .entry	        = on_##fn##_ent,                               \
+    .entry	        = on_##fn##_ent,                           \
     .kp.symbol_name = ""#symbol"",                                 \
 };
 
@@ -152,83 +152,57 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_reset_jp,
 };
 
-#define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx {    \
-    struct sock *sk;                                                    \
-    struct sockaddr *uaddr;                                             \
-    int addr_len;                                                       \
+#define _DECL_CMN_KRP(fn, symbol) static struct kretprobe fn##_krp = { \
+    .entry_handler	= on_krp_##fn##_ent,                           \
+    .handler		= on_krp_##fn##_ret,                           \
+    .data_size		= sizeof(fn##_args),                           \
+    .maxactive		= NR_CPUS * 2,                                 \
+    .kp.symbol_name = ""#symbol"",                                     \
+};
+
+#define DECL_CMN_KRP(fn) _DECL_CMN_KRP(fn, fn)
+
+#define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx { \
+    struct sock *sk;                                                 \
+    struct sockaddr *uaddr;                                          \
+    int addr_len;                                                    \
 };
 
 TCP_CONNECT_CTX(4);
-
-static int etcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-    struct tcp_v4_connect_ctx *ti = (void*)ri->data;
-
-    ti->sk = (void*)regs->di;
-    ti->uaddr = (void*)regs->si;
-    ti->addr_len = (int)regs->dx;
-
-    return 0;
-}
-
-static int rtcp_v4_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-    struct tcp_v4_connect_ctx *ti = (void*)ri->data;
-    struct sock *sk = ti->sk;
-    struct sockaddr *uaddr = ti->uaddr;
-    int addr_len = ti->addr_len;
-    int retval = regs_return_value(regs);
-
-    trace_tcp_v4_connect_return(sk, uaddr, addr_len, retval);
-
-    return 0;
-}
-
-static struct kretprobe tcp_v4_connect_krp = {
-    .kp = {
-        .symbol_name = "tcp_v4_connect",
-    },
-    .handler                = &rtcp_v4_connect,
-    .entry_handler          = &etcp_v4_connect,
-    .data_size              = sizeof(struct tcp_v4_connect_ctx),
-    .maxactive              = NR_CPUS * 2,
-};
-
 TCP_CONNECT_CTX(6);
 
-static int etcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-    struct tcp_v6_connect_ctx *ti = (void*)ri->data;
+#undef TCP_CONNECT_CTX
+#define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx
 
-    ti->sk = (void*)regs->di;
-    ti->uaddr = (void*)regs->si;
-    ti->addr_len = (int)regs->dx;
-
-    return 0;
-}
-
-static int rtcp_v6_connect(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-    struct tcp_v6_connect_ctx *ti = (void*)ri->data;
-    struct sock *sk = ti->sk;
-    struct sockaddr *uaddr = ti->uaddr;
-    int addr_len = ti->addr_len;
-    int retval = regs_return_value(regs);
-
-    trace_tcp_v6_connect_return(sk, uaddr, addr_len, retval);
-
-    return 0;
-}
-
-static struct kretprobe tcp_v6_connect_krp = {
-    .kp = {
-        .symbol_name = "tcp_v6_connect",
-    },
-    .handler                = &rtcp_v6_connect,
-    .entry_handler          = &etcp_v6_connect,
-    .data_size              = sizeof(struct tcp_v6_connect_ctx),
-    .maxactive              = NR_CPUS * 2,
+#define DECL_CONNECT_KRP(fn, family) \
+static int on_krp_##fn##_ent(struct kretprobe_instance *ri, struct pt_regs *regs) \
+{                                                                                 \
+    TCP_CONNECT_CTX(family) *ti = (void*)ri->data;                                \
+    ti->sk = (void*)regs->di;                                                     \
+    ti->uaddr = (void*)regs->si;                                                  \
+    ti->addr_len = (int)regs->dx;                                                 \
+    return 0;                                                                     \
+}                                                                                 \
+static int on_krp_##fn##_ret(struct kretprobe_instance *ri, struct pt_regs *regs) \
+{                                                                                 \
+    TCP_CONNECT_CTX(family) *ti = (void*)ri->data;                                \
+    struct sock *sk = ti->sk;                                                     \
+    struct sockaddr *uaddr = ti->uaddr;                                           \
+    int addr_len = ti->addr_len;                                                  \
+    int retval = regs_return_value(regs);                                         \
+    trace_tcp_v4_connect_return(sk, uaddr, addr_len, retval);                     \
+    return 0;                                                                     \
+}                                                                                 \
+static struct kretprobe fn##_krp = {                                              \
+    .entry_handler	= on_krp_##fn##_ent,                                      \
+    .handler		= on_krp_##fn##_ret,                                      \
+    .data_size		= sizeof(TCP_CONNECT_CTX(family)),                        \
+    .maxactive		= NR_CPUS * 2,                                            \
+    .kp.symbol_name = ""#fn"",                                                    \
 };
+
+DECL_CONNECT_KRP(tcp_v4_connect, 4);
+DECL_CONNECT_KRP(tcp_v6_connect, 6);
 
 static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
