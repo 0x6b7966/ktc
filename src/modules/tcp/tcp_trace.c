@@ -7,7 +7,7 @@
 
 #define _DECL_CMN_JRP(fn, symbol) static struct jprobe fn##_jp = { \
     .entry	        = on_##fn##_ent,                           \
-    .kp.symbol_name = ""#symbol"",                                 \
+    .kp.symbol_name     = ""#symbol"",                             \
 };
 
 #define DECL_CMN_JRP(fn) _DECL_CMN_JRP(fn, fn)
@@ -152,16 +152,6 @@ static struct jprobe *tcp_jprobes[] = {
     &tcp_reset_jp,
 };
 
-#define _DECL_CMN_KRP(fn, symbol) static struct kretprobe fn##_krp = { \
-    .entry_handler	= on_krp_##fn##_ent,                           \
-    .handler		= on_krp_##fn##_ret,                           \
-    .data_size		= sizeof(fn##_args),                           \
-    .maxactive		= NR_CPUS * 2,                                 \
-    .kp.symbol_name = ""#symbol"",                                     \
-};
-
-#define DECL_CMN_KRP(fn) _DECL_CMN_KRP(fn, fn)
-
 #define TCP_CONNECT_CTX(family) struct tcp_v##family##_connect_ctx { \
     struct sock *sk;                                                 \
     struct sockaddr *uaddr;                                          \
@@ -198,13 +188,36 @@ static struct kretprobe fn##_krp = {                                            
     .handler		= on_krp_##fn##_ret,                                      \
     .data_size		= sizeof(TCP_CONNECT_CTX(family)),                        \
     .maxactive		= NR_CPUS * 2,                                            \
-    .kp.symbol_name = ""#fn"",                                                    \
+    .kp.symbol_name     = ""#fn"",                                                \
 };
 
 DECL_CONNECT_KRP(tcp_v4_connect, 4);
 DECL_CONNECT_KRP(tcp_v6_connect, 6);
 
-static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
+#define _DECL_CMN_KRP(fn, symbol, cond) _DECL_CMN_KRP_##cond(fn, symbol) 
+
+#define _DECL_CMN_KRP_0(fn, symbol) static struct kretprobe fn##_krp = { \
+    .entry_handler	= NULL,                                          \
+    .handler		= on_krp_##fn##_ret,                             \
+    .data_size		= 0,                                             \
+    .maxactive		= NR_CPUS * 2,                                   \
+    .kp.symbol_name     = ""#symbol"",                                   \
+};
+
+#define _DECL_CMN_KRP_1(fn, symbol) static struct kretprobe fn##_krp = { \
+    .entry_handler	= on_krp_##fn##_ent,                             \
+    .handler		= on_krp_##fn##_ret,                             \
+    .data_size		= sizeof(struct fn##_args),                      \
+    .maxactive		= NR_CPUS * 2,                                   \
+    .kp.symbol_name     = ""#symbol"",                                   \
+};
+
+#define DECL_CMN_KRP(fn, cond) _DECL_CMN_KRP(fn, fn, cond)
+
+#define WITH_ENTEY    1
+#define WITHOUT_ENTEY 0 
+
+static int on_krp_inet_csk_accept_ret(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
     struct sock *sk = (void*)regs_return_value(regs);
     u8 protocol = 0;
@@ -239,24 +252,16 @@ static int rinet_csk_accept(struct kretprobe_instance *ri, struct pt_regs *regs)
     return 0;
 }
 
-static struct kretprobe inet_csk_accept_krp = {
-    .kp = {
-        .symbol_name = "inet_csk_accept",
-    },
-    .handler                = &rinet_csk_accept,
-    .entry_handler          = NULL,
-    .data_size              = 0,
-    .maxactive              = NR_CPUS * 2,
-};
+DECL_CMN_KRP(inet_csk_accept, WITHOUT_ENTEY);
 
-struct tcp_rtx_synack_ctx {
+struct tcp_rtx_synack_args {
     struct sock *sk;
     struct request_sock *req;
 };
 
-static int etcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
+static int on_krp_tcp_rtx_synack_ent(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
+    struct tcp_rtx_synack_args *trsc = (void*)ri->data;
 
     trsc->sk = (void*)regs->di;
     trsc->req = (void*)regs->si;
@@ -264,9 +269,9 @@ static int etcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
     return 0;
 }
 
-static int rtcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
+static int on_krp_tcp_rtx_synack_ret(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    struct tcp_rtx_synack_ctx *trsc = (void*)ri->data;
+    struct tcp_rtx_synack_args *trsc = (void*)ri->data;
 
     if ((int)regs_return_value(regs)) {
        trace_tcp_retransmit_synack(trsc->sk, trsc->req);
@@ -275,15 +280,7 @@ static int rtcp_rtx_synack(struct kretprobe_instance *ri, struct pt_regs *regs)
     return 0;
 }
 
-static struct kretprobe tcp_rtx_synack_krp = {
-    .kp = {
-        .symbol_name = "tcp_rtx_synack",
-    },
-    .handler                = &rtcp_rtx_synack,
-    .entry_handler          = &etcp_rtx_synack,
-    .data_size              = sizeof(struct tcp_rtx_synack_ctx),
-    .maxactive              = NR_CPUS * 2,
-};
+DECL_CMN_KRP(tcp_rtx_synack, WITH_ENTEY);
 
 static struct kretprobe *tcp_krps[] = {
     &tcp_v4_connect_krp,
@@ -292,7 +289,8 @@ static struct kretprobe *tcp_krps[] = {
     &tcp_rtx_synack_krp,
 };
 
-static int __init tcp_trace_init(void) {
+static int __init tcp_trace_init(void)
+{
     int ret;
 
     ret = register_jprobes(tcp_jprobes, sizeof(tcp_jprobes) / sizeof(tcp_jprobes[0]));
@@ -300,23 +298,20 @@ static int __init tcp_trace_init(void) {
         pr_err("Register tcp jprobes failed\n");
         return ret;
     }
-    pr_info("Register tcp jprobe successed\n");
 
     ret = register_kretprobes(tcp_krps, sizeof(tcp_krps) / sizeof(tcp_krps[0]));
     if (ret) {
         pr_err("Register tcp kretprobes failed\n");
         return ret;
     }
-    pr_info("Register tcp kretprobes successed\n");
 
     return 0;
 }
 
-static void __exit tcp_trace_exit(void) {
+static void __exit tcp_trace_exit(void)
+{
     unregister_jprobes(tcp_jprobes, sizeof(tcp_jprobes) / sizeof(tcp_jprobes[0]));
-    pr_info("unregister tcp jprobes successed\n");
     unregister_kretprobes(tcp_krps, sizeof(tcp_krps) / sizeof(tcp_krps[0]));
-    pr_info("unregister tcp kretprobes successed\n");
 }
 
 MODULE_AUTHOR("Zwb <ethercflow@gmail.com>");
