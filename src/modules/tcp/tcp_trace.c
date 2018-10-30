@@ -6,7 +6,7 @@
 #include "tcp_trace.h"
 
 #define _DECL_CMN_JRP(fn, symbol) static struct jprobe fn##_jp = { \
-    .entry	        = on_##fn##_ent,                           \
+    .entry              = on_##fn##_ent,                           \
     .kp.symbol_name     = ""#symbol"",                             \
 };
 
@@ -184,10 +184,10 @@ static int on_krp_##fn##_ret(struct kretprobe_instance *ri, struct pt_regs *regs
     return 0;                                                                     \
 }                                                                                 \
 static struct kretprobe fn##_krp = {                                              \
-    .entry_handler	= on_krp_##fn##_ent,                                      \
-    .handler		= on_krp_##fn##_ret,                                      \
-    .data_size		= sizeof(TCP_CONNECT_CTX(family)),                        \
-    .maxactive		= NR_CPUS * 2,                                            \
+    .entry_handler      = on_krp_##fn##_ent,                                      \
+    .handler            = on_krp_##fn##_ret,                                      \
+    .data_size          = sizeof(TCP_CONNECT_CTX(family)),                        \
+    .maxactive          = NR_CPUS * 2,                                            \
     .kp.symbol_name     = ""#fn"",                                                \
 };
 
@@ -197,18 +197,18 @@ DECL_CONNECT_KRP(tcp_v6_connect, 6);
 #define _DECL_CMN_KRP(fn, symbol, cond) _DECL_CMN_KRP_##cond(fn, symbol) 
 
 #define _DECL_CMN_KRP_0(fn, symbol) static struct kretprobe fn##_krp = { \
-    .entry_handler	= NULL,                                          \
-    .handler		= on_krp_##fn##_ret,                             \
-    .data_size		= 0,                                             \
-    .maxactive		= NR_CPUS * 2,                                   \
+    .entry_handler      = NULL,                                          \
+    .handler            = on_krp_##fn##_ret,                             \
+    .data_size          = 0,                                             \
+    .maxactive          = NR_CPUS * 2,                                   \
     .kp.symbol_name     = ""#symbol"",                                   \
 };
 
 #define _DECL_CMN_KRP_1(fn, symbol) static struct kretprobe fn##_krp = { \
-    .entry_handler	= on_krp_##fn##_ent,                             \
-    .handler		= on_krp_##fn##_ret,                             \
-    .data_size		= sizeof(struct fn##_args),                      \
-    .maxactive		= NR_CPUS * 2,                                   \
+    .entry_handler      = on_krp_##fn##_ent,                             \
+    .handler            = on_krp_##fn##_ret,                             \
+    .data_size          = sizeof(struct fn##_args),                      \
+    .maxactive          = NR_CPUS * 2,                                   \
     .kp.symbol_name     = ""#symbol"",                                   \
 };
 
